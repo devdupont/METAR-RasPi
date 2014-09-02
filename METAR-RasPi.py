@@ -3,7 +3,7 @@
 ##--Michael duPont
 ##--METAR-RasPi
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
-##--2014-08-31
+##--2014-09-02
 
 ##--Use plate keypad to select ICAO station/airport iden to display METAR data
 ##----Left/Right - Choose position
@@ -29,20 +29,21 @@ import urllib2
 import string
 
 ##--User Vars
-numRows = 2                 #Vertical chars
-numCols = 16                #Horizontal chars
 updateInterval = 600.0      #Seconds between server pings
 buttonInterval = 0.2        #Seconds between plate button reads
 scrollInterval = 0.5        #Seconds between row 2 char scroll
-logMETAR = True             #Log METAR data
+timeoutInterval = 60.0      #Seconds between connection retries
+logMETAR = False            #Log METAR data
 logName = "METARlog.txt"    #METAR log name
 ident = [11 , 12 , 5 , 24]  #Default station ident, ex. [11,12,5,24] = KLEX
 
 ##--Global Vars
+numRows = 2
+numCols = 16
 lcd = Adafruit_CharLCDPlate()
 lcdColors = [lcd.GREEN,lcd.BLUE,lcd.RED,lcd.VIOLET,lcd.ON]
-replacements = [['00000KT','CALM']]   #String replacement for line2 (scrolling data)
-cloudList = ['FEW','SCT','BKN','OVC']
+replacements = [['00000KT','CALM']]   #String replacement for Line2 (scrolling data)
+cloudList = ['CLR','SKC','FEW','SCT','BKN','OVC']
 charList = [' ','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9']
 
 #Converts 'ident' values to chars
@@ -73,7 +74,7 @@ def selectMETAR():
 	for row in range(4):
 		lcd.setCursor(row,1)
 		lcd.message(charList[ident[row]])
-	lcd.setCursor(1,1)
+	lcd.setCursor(0,1)
 	lcd.cursor()
 	sleep(1)   #Allow finger to be lifted from select button
 	#Selection loop
@@ -109,65 +110,74 @@ def selectMETAR():
 #Get METAR report for 'station' from www.aviationweather.gov
 #Returns METAR report string
 def getMETAR(station):
-	response = urllib2.urlopen('http://www.aviationweather.gov/adds/metars/?station_ids='+station+'&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit')
-	html = response.read()
-	reportStart = html.find(station)   #Report begins with station iden
-	reportEnd = html[reportStart:].find('<')   #Report ends with html bracket
-	return html[reportStart:reportStart+reportEnd]
+	try:
+		response = urllib2.urlopen('http://www.aviationweather.gov/adds/metars/?station_ids='+station+'&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit')
+		html = response.read()
+		reportStart = html.find(station)   #Report begins with station iden
+		reportEnd = html[reportStart:].find('<')   #Report ends with html bracket
+		return html[reportStart:reportStart+reportEnd].replace('\n ','')
+	except:
+		return None
 
-#Returns a list[string] of parsed METAR data
-#Format out: [ [wind-direction,wind-speed] , visibility , altimeter , [Temp,Dewpoint] , Ceiling ]
+#Returns a dictionary of parsed METAR data
+#Keys: Station, Time, Wind-Direction, Wind-Speed, Visibility, Altimeter, Temperature, Dewpoint, Cloud-List, Other-List, Remarks
 def parseMETAR(txt):
-	retWX = []
+	retWX = {}
 	#Remove remarks and split
-	if txt.find('RMK') != -1: wxData = txt[:txt.find('RMK')-1].split(' ')[2:]
-	else: wxData = txt.split(' ')[2:]
+	if txt.find('RMK') != -1:
+		retWX['Remarks'] = txt[txt.find('RMK')+4:]
+		wxData = txt[:txt.find('RMK')-1].split(' ')
+	else:
+		retWX['Remarks'] = ''
+		wxData = txt.split(' ')
+	#Station and Time
+	retWX['Station'] = wxData.pop(0)
+	retWX['Time'] = wxData.pop(0)
 	#Sanitize wxData
 	if wxData[0] == 'AUTO': wxData.pop(0)          #Indicates report was automated
 	if wxData[len(wxData)-1] == '$': wxData.pop()  #Indicates station needs maintenance
 	#Surface wind
-	retWX.append([wxData[0][:3],wxData[0][3:5]])
+	retWX['Wind-Direction'] = wxData[0][:3]
+	retWX['Wind-Speed'] = wxData[0][3:5]
 	wxData.pop(0)
 	#Visibility
-	retWX.append(wxData[0][:len(wxData[0])-2])
-	wxData.pop(0)
+	if wxData[0].find('SM') != -1:   #10SM
+		retWX['Visibility'] = wxData[0][:wxData[0].find('SM')]
+		wxData.pop(0)
+	else:   #2 1/2SM
+		vis1 = wxData.pop(0)  #2
+		vis2 = wxData[0][:wxData[0].find('SM')]  #1/2
+		wxData.pop(0)
+		retWX['Visibility'] = str(int(vis1)*int(vis2[2])+int(vis2[0]))+vis2[1:]  #5/2
 	#Altimeter
-	retWX.append(wxData[len(wxData)-1][1:])
+	retWX['Altimeter'] = wxData[len(wxData)-1][1:]
 	wxData.pop()
 	#Temp/Dewpoint
-	retWX.append(wxData[len(wxData)-1].split('/'))
+	TD = wxData[len(wxData)-1].split('/')
+	retWX['Temperature'] = TD[0]
+	retWX['Dewpoint'] = TD[1]
 	wxData.pop()
-	#Ceiling
-	if 'CLR' in wxData:
-		retWX.append('CLR')
-		wxData.remove('CLR')
-	elif 'SKC' in wxData:
-		retWX.append('SKC')
-		wxData.remove('SKC')
-	else:
-		#Get first(lowest) cloud layer
-		for i in range(len(wxData)):
-			if (len(wxData[i]) == 6) and (wxData[i][:3] in cloudList):
-				retWX.append(wxData[i])
-				break
-		#Remove cloud data
-		for i in range(len(wxData),0):
-			if (len(wxData[i]) == 6) and (wxData[i][:3] in cloudList): wxData.pop(i)
+	#Clouds
+	clouds = []
+	for i in reversed(range(len(wxData))):
+		if (wxData[i][:3] in cloudList) or (wxData[i][:2] == 'VV'):
+			clouds.append(wxData.pop(i))
+	clouds.reverse()
+	retWX['Cloud-List'] = clouds
 	#Other weather
-	#retWX.append[wxData]
-	#print(wxData)
+	retWX['Other-List'] = wxData
+	if logMETAR: logData(logName , retWX)
 	return retWX
 
 #Returns int based on current flight rules from parsed METAR data
 #0=VFR , 1=MVFR , 2=IFR , 3=LIFR
-def getFlightRules(wxList):
+def getFlightRules(vis , cld):
 	#Parse visibility
-	vis = wxList[1]
-	if vis.find('/') != -1: vis = 0 #Fraction visibility = less than one mile
+	if vis.find('/') != -1: vis = int(vis[0]) / int(vis[2])
 	else: vis = int(vis)
 	#Parse ceiling
-	cld = wxList[4]
-	if (cld[:3] == 'BKN') or (cld[:3] == 'OVC'): cld = int(cld[3:]) #Only 'Broken' and 'Overcast' are considdered FR ceilings
+	if (cld[:3] == 'BKN') or (cld[:3] == 'OVC'): cld = int(cld[3:]) #Only 'Broken', 'Overcast', and 'Vertical Visibility' are considdered ceilings
+	elif cld[:2] == 'VV': cld = int(cld[2:])
 	else: cld = 99
 	#Determine flight rules
 	if (vis < 5) or (cld < 30):
@@ -186,20 +196,28 @@ def lcdSelect():
 	lcd.clear()
 	lcd.message(getIdent(ident)+'\nSelected')
 
+#Display timeout message and sleep
+#Returns None
+def lcdTimeout():
+	if logMETAR: logData(logName , 'No connection')
+	lcd.clear()
+	lcd.setCursor(0,0)
+	lcd.message('No connection\nCheck back soon')
+	sleep(timeoutInterval)	
+
 #Returns tuple of display data from METAR txt (Line1,Line2,BLInt)
 #Line1: IDEN HHMMZ BB.bb
 #Line2: Rest of METAR report
 #BLInt: Flight rules int
 def createDisplayData(txt):
-	#Create list of [Iden,Time,Rest]
-	if txt.find('RMK') != -1: wxData = txt[:txt.find('RMK')-1].split(' ',2)
-	else: wxData = txt.split(' ',2)
-	#Create parsed list of data
+	#Create dictionary of data
 	parsedWX = parseMETAR(txt)
-	line1 = wxData[0] + ' ' + wxData[1][2:] + ' ' + parsedWX[2][:2]+'.'+parsedWX[2][2:]
-	line2 = string.replace(wxData[2] , ' A'+parsedWX[2] , '') #Remove altimeter
+	#Create Lines
+	alt = parsedWX['Altimeter']
+	line1 = parsedWX['Station']+' '+parsedWX['Time'][2:]+' '+alt[:2]+'.'+alt[2:]
+	line2 = txt[:txt.find('A'+alt)-1].split(' ',2)[2]
 	for rep in replacements: line2 = string.replace(line2 , rep[0] , rep[1]) #Any other string replacements
-	return line1 , line2 , getFlightRules(parsedWX)
+	return line1 , line2 , getFlightRules(parsedWX['Visibility'],parsedWX['Cloud-List'][0])
 
 #Display METAR data on LCD plate
 #Returns approx time elapsed (float)
@@ -236,7 +254,6 @@ def displayMETAR(line1 , line2 , lcdLight):
 def logData(fname, *data):
 	fout = open(fname , 'a')
 	for datum in data: fout.write(datum+'\n')
-	fout.write('\n')
 	fout.close()
 	return None
 
@@ -246,9 +263,12 @@ def main():
 	setup()     #Initial Setup
 	lcdSelect() #Show Ident Selection
 	while True:
-		METARtxt = getMETAR(getIdent(ident))     #Fetch current METAR
-		L1,L2,FR = createDisplayData(METARtxt)   #Create display data
-		if logMETAR: logData(logName , METARtxt , L1 , L2)   #Log METAR data
+		METARtxt = getMETAR(getIdent(ident)) #Fetch current METAR
+		while not METARtxt:                  #Fetch data until success
+			lcdTimeout()
+			METARtxt = getMETAR(getIdent(ident))
+		L1,L2,FR = createDisplayData(METARtxt)            #Create display data
+		if logMETAR: logData(logName,METARtxt,L1,L2,'\n') #Log METAR data
 		totalTime = 0.0
 		while totalTime < updateInterval:        #Loop until program fetches new data
 			totalTime += displayMETAR(L1,L2,FR)  #Cycle display one loop. Add elapsed time to total time
