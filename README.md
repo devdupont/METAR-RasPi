@@ -23,7 +23,7 @@ Program auto-updates METAR data for selected station
 
 Option to log all displayed METAR data for further optimization
 
-Optimized for US reporting stations
+Optimized for US, Canada, Bahamas, and Mexico reporting stations
 
 -----------
 
