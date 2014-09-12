@@ -137,18 +137,24 @@ def parseMETAR(txt):
 	if wxData[0] == 'AUTO': wxData.pop(0)          #Indicates report was automated
 	if wxData[len(wxData)-1] == '$': wxData.pop()  #Indicates station needs maintenance
 	#Surface wind
-	retWX['Wind-Direction'] = wxData[0][:3]
-	retWX['Wind-Speed'] = wxData[0][3:5]
-	wxData.pop(0)
+	if wxData[0][len(wxData[0])-2:] == 'KT':
+		retWX['Wind-Direction'] = wxData[0][:3]
+		retWX['Wind-Speed'] = wxData[0][3:5]
+		wxData.pop(0)
+	else:
+		retWX['Wind-Direction'] = ''
+		retWX['Wind-Speed'] = ''
 	#Visibility
 	if wxData[0].find('SM') != -1:   #10SM
 		retWX['Visibility'] = wxData[0][:wxData[0].find('SM')]
 		wxData.pop(0)
-	else:   #2 1/2SM
+	elif wxData[1].find('SM') != -1:   #2 1/2SM
 		vis1 = wxData.pop(0)  #2
 		vis2 = wxData[0][:wxData[0].find('SM')]  #1/2
 		wxData.pop(0)
 		retWX['Visibility'] = str(int(vis1)*int(vis2[2])+int(vis2[0]))+vis2[1:]  #5/2
+	else:
+		retWX['Visibility'] = ''
 	#Altimeter
 	if (wxData[len(wxData)-1][0] == 'A'):
 		retWX['Altimeter'] = wxData[len(wxData)-1][1:]
@@ -173,18 +179,21 @@ def parseMETAR(txt):
 	#Other weather
 	retWX['Other-List'] = wxData
 	if logMETAR: logData(logName , retWX)
+	if not logMETAR: print(retWX)
 	return retWX
 
 #Returns int based on current flight rules from parsed METAR data
 #0=VFR , 1=MVFR , 2=IFR , 3=LIFR
 def getFlightRules(vis , cld):
 	#Parse visibility
-	if vis.find('/') != -1:
+	if (vis == '') and (cld == ''): return 4 #Not enought data
+	if (vis == ''): vis = 99
+	elif vis.find('/') != -1:
 		if vis[0] == 'M': vis = 0
 		else: vis = int(vis[0]) / int(vis[2])
 	else: vis = int(vis)
 	#Parse ceiling
-	if (cld[:3] == 'BKN') or (cld[:3] == 'OVC'): cld = int(cld[3:6]) #Only 'Broken', 'Overcast', and 'Vertical Visibility' are considdered ceilings
+	if (cld[:3] == 'BKN') or (cld[:3] == 'OVC'): cld = int(cld[3:6])
 	elif cld[:2] == 'VV': cld = int(cld[2:5])
 	else: cld = 99
 	#Determine flight rules
@@ -238,7 +247,7 @@ def createDisplayData(txt):
 	for rep in replacements: line2 = string.replace(line2 , rep[0] , rep[1]) #Any other string replacements
 	#Get flight rules
 	vis = parsedWX['Visibility']
-	cld = 'CLR'
+	cld = ''
 	#Only 'Broken', 'Overcast', and 'Vertical Visibility' are considdered ceilings
 	#Prevents errors due to lack of cloud information (eg. '' or 'FEW///')
 	for cloud in parsedWX['Cloud-List']:
