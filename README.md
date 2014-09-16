@@ -53,4 +53,10 @@ LCD backlight indicates current Flight Rules
 
 * Violet - LIFR
 
-Holding select button at the end of a line scroll displays iden selection screen
+At the end of a line scroll:
+
+* Holding select button displays iden selection screen
+
+* Holding left and right buttons gives option to shutdown the Pi
+
+* Shutdown option also available during station selection

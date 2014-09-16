@@ -3,7 +3,7 @@
 ##--Michael duPont
 ##--METAR-RasPi
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
-##--2014-09-15
+##--2014-09-16
 
 ##--Use plate keypad to select ICAO station/airport iden to display METAR data
 ##----Left/Right - Choose position
@@ -17,7 +17,9 @@
 ##----Blue       - MVFR
 ##----Red        - IFR
 ##----Violet     - LIFR
-##--Holding select button at the end of a line scroll displays iden selection screen
+##--At the end of a line scroll:
+##----Holding select button displays iden selection screen
+##----Holding left and right buttons gives option to shutdown the Pi
 
 ##--Uses Adafruit RGB Negative 16x2 LCD - https://www.adafruit.com/product/1110
 ##--Software library for LCD plate - https://github.com/adafruit/Adafruit-Raspberry-Pi-Python-Code
@@ -27,6 +29,8 @@ from time import sleep
 from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
 import urllib2
 import string
+import os
+import sys
 
 ##--User Vars
 updateInterval = 600.0      #Seconds between server pings
@@ -79,8 +83,11 @@ def selectMETAR():
 	sleep(1)   #Allow finger to be lifted from select button
 	#Selection loop
 	while not selected:
+		#Shutdown option
+		if lcd.buttonPressed(lcd.LEFT) and lcd.buttonPressed(lcd.RIGHT):
+			lcdShutdown()
 		#Previous char
-		if lcd.buttonPressed(lcd.UP):
+		elif lcd.buttonPressed(lcd.UP):
 			curNum = ident[cursorPos]
 			if curNum == 0: curNum = len(charList)
 			ident[cursorPos] = curNum-1
@@ -234,6 +241,39 @@ def lcdBadStation():
 	sleep(3)
 	lcdSelect()	
 
+#Display shutdown option
+#Shuts down Pi or returns None
+def lcdShutdown():
+	selection = False
+	selected = False
+	
+	lcd.clear()
+	lcd.setCursor(0,0)
+	lcd.message('Shutdown the Pi?\nY N')
+	lcd.setCursor(2,1)
+	lcd.cursor()
+	sleep(1)   #Allow finger to be lifted from select button
+	#Selection loop
+	while not selected:
+		#Move cursor right
+		if lcd.buttonPressed(lcd.RIGHT) and selection:
+			lcd.setCursor(2,1)
+			selection = False
+		#Move cursor left
+		elif lcd.buttonPressed(lcd.LEFT) and not selection:
+			lcd.setCursor(0,1)
+			selection = True
+		#Confirm selection
+		elif lcd.buttonPressed(lcd.SELECT):
+			selected = True
+		sleep(buttonInterval)
+	lcd.noCursor()
+	if not selection: return None
+	lcd.clear()
+	lcd.backlight(lcd.OFF)
+	os.system('shutdown -h now')
+	sys.exit()
+
 #Returns tuple of display data from METAR txt (Line1,Line2,BLInt)
 #Line1: IDEN HHMMZ BB.bb
 #Line2: Rest of METAR report
@@ -317,6 +357,9 @@ def main():
 			if lcd.buttonPressed(lcd.SELECT):    #If select button pressed at end of a cycle
 				lcdSelect()  #Show Ident Selection
 				break        #Break to fetch new METAR
+			elif lcd.buttonPressed(lcd.LEFT) and lcd.buttonPressed(lcd.RIGHT):  #If right and left
+				lcdShutdown() #Shutdown option
+				
 	return 0
 
 main()
