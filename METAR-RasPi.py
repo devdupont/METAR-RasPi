@@ -86,6 +86,15 @@ def selectMETAR():
 		#Shutdown option
 		if lcd.buttonPressed(lcd.LEFT) and lcd.buttonPressed(lcd.RIGHT):
 			lcdShutdown()
+			lcd.clear() #If no, reset screen
+			lcd.setCursor(0,0)
+			lcd.message('4-Digit METAR')
+			for row in range(4):
+				lcd.setCursor(row,1)
+				lcd.message(charList[ident[row]])
+			lcd.setCursor(0,1)
+			lcd.cursor()
+			sleep(1)
 		#Previous char
 		elif lcd.buttonPressed(lcd.UP):
 			curNum = ident[cursorPos]
