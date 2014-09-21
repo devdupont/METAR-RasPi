@@ -151,7 +151,7 @@ def parseMETAR(txt):
 		retWX['Remarks'] = ''
 		wxData = txt.split(' ')
 	#Sanitize wxData
-	if wxData[0] == 'AUTO': wxData.pop(0)          #Indicates report was automated
+	if wxData[2] == 'AUTO': wxData.pop(0)          #Indicates report was automated
 	if wxData[len(wxData)-1] == '$': wxData.pop()  #Indicates station needs maintenance
 	#Altimeter
 	if wxData and (wxData[len(wxData)-1][0] == 'A'):
