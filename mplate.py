@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
 ##--Michael duPont
-##--METAR-RasPi
+##--METAR-RasPi : mplate
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
-##--2014-09-16
+##--2014-10-29
 
 ##--Use plate keypad to select ICAO station/airport iden to display METAR data
 ##----Left/Right - Choose position
@@ -23,23 +23,16 @@
 
 ##--Uses Adafruit RGB Negative 16x2 LCD - https://www.adafruit.com/product/1110
 ##--Software library for LCD plate - https://github.com/adafruit/Adafruit-Raspberry-Pi-Python-Code
-##--Note: Code runs Python 3.x and may not be fully compatable with 2.x
 
+from mlogic import *
 from time import sleep
+from copy import copy
 from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
-import urllib2
-import string
-import os
-import sys
+import os , sys
 
 ##--User Vars
-updateInterval = 600.0      #Seconds between server pings
 buttonInterval = 0.2        #Seconds between plate button reads
 scrollInterval = 0.5        #Seconds between row 2 char scroll
-timeoutInterval = 60.0      #Seconds between connection retries
-logMETAR = False            #Log METAR data
-logName = "METARlog.txt"    #METAR log name
-ident = [11 , 12 , 5 , 24]  #Default station ident, ex. [11,12,5,24] = KLEX
 
 ##--Global Vars
 numRows = 2
@@ -47,15 +40,7 @@ numCols = 16
 lcd = Adafruit_CharLCDPlate()
 lcdColors = [lcd.GREEN,lcd.BLUE,lcd.RED,lcd.VIOLET,lcd.ON]
 replacements = [['00000KT','CALM']]   #String replacement for Line2 (scrolling data)
-cloudList = ['CLR','SKC','FEW','SCT','BKN','OVC']
-charList = [' ','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9']
-
-#Converts 'ident' values to chars
-#Returns 4-char string
-def getIdent(identList):
-	ret = ''
-	for num in identList: ret += charList[num]
-	return ret
+path = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 #Program setup
 #Returns None
@@ -123,107 +108,6 @@ def selectMETAR():
 	lcd.noCursor()
 	return None
 
-#Get METAR report for 'station' from www.aviationweather.gov
-#Returns METAR report string
-#Else returns error int
-#0=Bad connection , 1=Station DNE
-def getMETAR(station):
-	try:
-		response = urllib2.urlopen('http://www.aviationweather.gov/adds/metars/?station_ids='+station+'&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit')
-		html = response.read()
-		if html.find('>'+station+'<') != -1: return 1   #Station does not exist
-		reportStart = html.find('>'+station+' ')+1      #Report begins with station iden
-		if reportStart == -1 and (html.find('>'+station)): return 1 #Station does not exist: site took closest guess
-		reportEnd = html[reportStart:].find('<')        #Report ends with html bracket
-		return html[reportStart:reportStart+reportEnd].replace('\n ','')
-	except:
-		return 0
-
-#Returns a dictionary of parsed METAR data
-#Keys: Station, Time, Wind-Direction, Wind-Speed, Visibility, Altimeter, Temperature, Dewpoint, Cloud-List, Other-List, Remarks
-def parseMETAR(txt):
-	retWX = {}
-	#Remove remarks and split
-	if txt.find('RMK') != -1:
-		retWX['Remarks'] = txt[txt.find('RMK')+4:]
-		wxData = txt[:txt.find('RMK')-1].split(' ')
-	else:
-		retWX['Remarks'] = ''
-		wxData = txt.split(' ')
-	#Sanitize wxData
-	if wxData[2] == 'AUTO': wxData.pop(0)          #Indicates report was automated
-	if wxData[len(wxData)-1] == '$': wxData.pop()  #Indicates station needs maintenance
-	#Altimeter
-	if wxData and (wxData[len(wxData)-1][0] == 'A'):
-		retWX['Altimeter'] = wxData[len(wxData)-1][1:]
-		wxData.pop()
-	else: retWX['Altimeter'] = 'NONE'
-	#Temp/Dewpoint
-	if wxData and (wxData[len(wxData)-1].find('/') != -1):
-		TD = wxData[len(wxData)-1].split('/')
-		retWX['Temperature'] = TD[0]
-		retWX['Dewpoint'] = TD[1]
-	else:
-		retWX['Temperature'] = ''
-		retWX['Dewpoint'] = ''
-	wxData.pop()
-	#Station and Time
-	retWX['Station'] = wxData.pop(0)
-	retWX['Time'] = wxData.pop(0)
-	#Surface wind
-	if wxData and (wxData[0][len(wxData[0])-2:] == 'KT'):
-		retWX['Wind-Direction'] = wxData[0][:3]
-		retWX['Wind-Speed'] = wxData[0][3:5]
-		wxData.pop(0)
-	else:
-		retWX['Wind-Direction'] = ''
-		retWX['Wind-Speed'] = ''
-	#Visibility
-	if wxData and (wxData[0].find('SM') != -1):   #10SM
-		retWX['Visibility'] = wxData[0][:wxData[0].find('SM')]
-		wxData.pop(0)
-	elif (len(wxData) > 1) and wxData[1].find('SM') != -1:   #2 1/2SM
-		vis1 = wxData.pop(0)  #2
-		vis2 = wxData[0][:wxData[0].find('SM')]  #1/2
-		wxData.pop(0)
-		retWX['Visibility'] = str(int(vis1)*int(vis2[2])+int(vis2[0]))+vis2[1:]  #5/2
-	else:
-		retWX['Visibility'] = ''
-	#Clouds
-	clouds = []
-	for i in reversed(range(len(wxData))):
-		if (wxData[i][:3] in cloudList) or (wxData[i][:2] == 'VV'):
-			clouds.append(wxData.pop(i))
-	clouds.reverse()
-	retWX['Cloud-List'] = clouds
-	#Other weather
-	retWX['Other-List'] = wxData
-	if logMETAR: logData(logName , retWX)
-	return retWX
-
-#Returns int based on current flight rules from parsed METAR data
-#0=VFR , 1=MVFR , 2=IFR , 3=LIFR , 4=NotEnoughData
-def getFlightRules(vis , cld):
-	#Parse visibility
-	if (vis == '') and (cld == ''): return 4 #Not enought data
-	if (vis == ''): vis = 99
-	elif vis.find('/') != -1:
-		if vis[0] == 'M': vis = 0
-		else: vis = int(vis[0]) / int(vis[2])
-	else: vis = int(vis)
-	#Parse ceiling
-	if (cld[:3] == 'BKN') or (cld[:3] == 'OVC'): cld = int(cld[3:6])
-	elif cld[:2] == 'VV': cld = int(cld[2:5])
-	else: cld = 99
-	#Determine flight rules
-	if (vis < 5) or (cld < 30):
-		if (vis < 3) or (cld < 10):
-			if (vis < 1) or (cld < 5):
-				return 3 #LIFR
-			return 2 #IFR
-		return 1 #MVFR
-	return 0 #VFR
-
 #Display METAR selection screen on LCD
 #Returns None
 def lcdSelect():
@@ -235,7 +119,8 @@ def lcdSelect():
 #Display timeout message and sleep
 #Returns None
 def lcdTimeout():
-	if logMETAR: logData(logName , 'No connection')
+	if logMETAR: print('Connection Timeout' , time.strftime('- %d %H:%M:%S'))
+	lcd.backlight(lcdColors[4])
 	lcd.clear()
 	lcd.setCursor(0,0)
 	lcd.message('No connection\nCheck back soon')
@@ -255,13 +140,13 @@ def lcdBadStation():
 def lcdShutdown():
 	selection = False
 	selected = False
-	
+	lcd.backlight(lcdColors[4])
 	lcd.clear()
 	lcd.setCursor(0,0)
 	lcd.message('Shutdown the Pi?\nY N')
 	lcd.setCursor(2,1)
 	lcd.cursor()
-	sleep(1)   #Allow finger to be lifted from select button
+	sleep(1)   #Allow finger to be lifted from LR buttons
 	#Selection loop
 	while not selected:
 		#Move cursor right
@@ -297,16 +182,7 @@ def createDisplayData(txt):
 	elif txt.find('RMK') != -1:	line2 = txt[:txt.find('RMK')-1].split(' ',2)[2]
 	else: line2 = txt.split(' ',2)[2]
 	for rep in replacements: line2 = string.replace(line2 , rep[0] , rep[1]) #Any other string replacements
-	#Get flight rules
-	vis = parsedWX['Visibility']
-	cld = ''
-	#Only 'Broken', 'Overcast', and 'Vertical Visibility' are considdered ceilings
-	#Prevents errors due to lack of cloud information (eg. '' or 'FEW///')
-	for cloud in parsedWX['Cloud-List']:
-		if (cloud[len(cloud)-1] != '/') and ((cloud[:3] == 'BKN') or (cloud[:3] == 'OVC') or (cloud[:2] == 'VV')):
-			cld = cloud
-			break
-	return line1 , line2 , getFlightRules(vis,cld)
+	return line1 , line2 , getFlightRules(parsedWX['Visibility'],getCeiling(parsedWX['Cloud-List']))
 
 #Display METAR data on LCD plate
 #Returns approx time elapsed (float)
@@ -322,8 +198,6 @@ def displayMETAR(line1 , line2 , lcdLight):
 	if line2 <= numCols:  #No need to scroll line
 		lcd.setCursor(0,1)
 		lcd.message(line2 , lcd.TRUNCATE)
-		sleep(2)
-		timeElapsed += 2
 	else:
 		lcd.setCursor(0,1)
 		lcd.message(line2[:numCols] , lcd.TRUNCATE)
@@ -334,37 +208,39 @@ def displayMETAR(line1 , line2 , lcdLight):
 			lcd.message(line2[i:i+numCols] , lcd.TRUNCATE)
 			sleep(scrollInterval)
 			timeElapsed += scrollInterval
-		sleep(2) #Pause to read line end
-		timeElapsed += 2
-	return timeElapsed
-
-#Write a variable number of datapoints to a log
-#Returns None
-def logData(fname, *data):
-	fout = open(fname , 'a')
-	for datum in data: fout.write(datum+'\n')
-	fout.close()
-	return None
+	sleep(2) #Pause to read line / line end
+	return timeElapsed + 2
 
 #Program Main
-#Returns 1
+#Returns 1 if error, else 0
 def main():
+	lastMETAR = ''
+	userSelected = True
 	setup()     #Initial Setup
 	lcdSelect() #Show Ident Selection
 	while True:
 		METARtxt = getMETAR(getIdent(ident)) #Fetch current METAR
 		while type(METARtxt) == int: #Fetch data until success
 			if METARtxt == 0: lcdTimeout()       #Bad Connection
-			elif METARtxt == 1: lcdBadStation()  #Invalid Station
+			elif METARtxt == 1:
+				if userSelected: lcdBadStation() #Invalid Station
+				else:
+					if logMETAR: print('Ignoring non-user generated selection ' , time.strftime('- %d %H:%M:%S'))
+					METARtxt = copy(lastMETAR)   #Server data lookup error
+					break
 			else: return 1                       #Code error
 			METARtxt = getMETAR(getIdent(ident))
+		userSelected = False
+		lastMETAR = copy(METARtxt)
+		if logMETAR: print(METARtxt , time.strftime('- %d %H:%M:%S'))
 		L1,L2,FR = createDisplayData(METARtxt)            #Create display data
-		if logMETAR: logData(logName,METARtxt,L1,L2,'\n') #Log METAR data
+		if logMETAR: print(L1 , '\n' , L2) #Log METAR data
 		totalTime = 0.0
 		while totalTime < updateInterval:        #Loop until program fetches new data
 			totalTime += displayMETAR(L1,L2,FR)  #Cycle display one loop. Add elapsed time to total time
 			if lcd.buttonPressed(lcd.SELECT):    #If select button pressed at end of a cycle
 				lcdSelect()  #Show Ident Selection
+				userSelected = True
 				break        #Break to fetch new METAR
 			elif lcd.buttonPressed(lcd.LEFT) and lcd.buttonPressed(lcd.RIGHT):  #If right and left
 				lcdShutdown() #Shutdown option
