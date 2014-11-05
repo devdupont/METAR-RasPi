@@ -1,7 +1,7 @@
 ##--Michael duPont
 ##--METAR-RasPi : mlogic
 ##--Shared METAR settings and functions
-##--2014-10-30
+##--2014-11-05
 
 import urllib2 , string , time
 
@@ -33,14 +33,9 @@ def getIdent(identList):
 #0=Bad connection , 1=Station DNE/Server Error
 def getMETAR(station):
 	try:
-		#response = urllib2.urlopen('http://www.aviationweather.gov/adds/metars/?station_ids='+station+'&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit')
 		response = urllib2.urlopen('http://www.aviationweather.gov/metar/data?ids='+station+'&format=raw&date=0&hours=0')
 		html = response.read()
-		#if html.find('>'+station+'<') != -1:
-		if html.find(station+'<') != -1:
-			if logMETAR: print('Error METAR html 1' , time.strftime('- %d %H:%M:%S') , '\n' + str(html))
-			return 1   #Station does not exist/Database lookup error
-		#reportStart = html.find('>'+station+' ')+1      #Report begins with station iden
+		if html.find(station+'<') != -1: return 1   #Station does not exist/Database lookup error
 		reportStart = html.find('<code>'+station+' ')+6      #Report begins with station iden
 		reportEnd = html[reportStart:].find('<')        #Report ends with html bracket
 		return html[reportStart:reportStart+reportEnd].replace('\n ','')
@@ -80,7 +75,8 @@ def parseMETAR(txt):
 	retWX['Station'] = wxData.pop(0)
 	retWX['Time'] = wxData.pop(0)
 	#Surface wind
-	if wxData and ((wxData[0][len(wxData[0])-2:] == 'KT') or (len(wxData[0]) == 5 and wxData[0][0] != 'A')): #Occasionally KT is not included. Check len=5 and is not altimeter
+	#Occasionally KT is not included. Check len=5 and is not altimeter. Check len>=8 and contains G (gust)
+	if wxData and ((wxData[0][len(wxData[0])-2:] == 'KT') or (len(wxData[0]) == 5 and wxData[0][0] != 'A') or (len(wxData[0]) >= 8 and wxData.find('G') != -1)):
 		retWX['Wind-Direction'] = wxData[0][:3]
 		if wxData[0].find('G') != -1:
 			retWX['Wind-Gust'] = wxData[0][wxData[0].find('G')+1:wxData[0].find('KT')]
@@ -162,3 +158,7 @@ def translateWX(wx):
 		else: wxString += wx[:2]
 		wx = wx[2:]
 	return wxString
+
+#Adds timestamp to begining of print statement
+#Returns string of time + logString
+def timestamp(logString): return time.strftime('%d %H:%M:%S - ') + logString

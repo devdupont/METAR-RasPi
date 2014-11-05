@@ -3,7 +3,7 @@
 ##--Michael duPont
 ##--METAR-RasPi : mplate
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
-##--2014-10-29
+##--2014-11-05
 
 ##--Use plate keypad to select ICAO station/airport iden to display METAR data
 ##----Left/Right - Choose position
@@ -119,7 +119,7 @@ def lcdSelect():
 #Display timeout message and sleep
 #Returns None
 def lcdTimeout():
-	if logMETAR: print('Connection Timeout' , time.strftime('- %d %H:%M:%S'))
+	if logMETAR: print(timestamp('Connection Timeout'))
 	lcd.backlight(lcdColors[4])
 	lcd.clear()
 	lcd.setCursor(0,0)
@@ -225,16 +225,16 @@ def main():
 			elif METARtxt == 1:
 				if userSelected: lcdBadStation() #Invalid Station
 				else:
-					if logMETAR: print('Ignoring non-user generated selection ' , time.strftime('- %d %H:%M:%S'))
+					if logMETAR: print(timestamp('Ignoring non-user generated selection'))
 					METARtxt = copy(lastMETAR)   #Server data lookup error
 					break
 			else: return 1                       #Code error
 			METARtxt = getMETAR(getIdent(ident))
 		userSelected = False
 		lastMETAR = copy(METARtxt)
-		if logMETAR: print(METARtxt , time.strftime('- %d %H:%M:%S'))
+		if logMETAR: print(timestamp(METARtxt))
 		L1,L2,FR = createDisplayData(METARtxt)            #Create display data
-		if logMETAR: print(L1 , '\n' , L2) #Log METAR data
+		if logMETAR: print('\t' + L1 + '\n\t' + L2) #Log METAR data
 		totalTime = 0.0
 		while totalTime < updateInterval:        #Loop until program fetches new data
 			totalTime += displayMETAR(L1,L2,FR)  #Cycle display one loop. Add elapsed time to total time

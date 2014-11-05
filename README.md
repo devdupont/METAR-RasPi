@@ -29,7 +29,7 @@ Note for Class D airports with regular towered hours:
 
 ####METAR Screen
 
-METAR Screen Demonstration - Soon to come
+METAR Screen Demonstration - [http://youtu.be/tn1fOuBUiiI](http://youtu.be/tn1fOuBUiiI)
 
 Designed for the Adafruit 320x240 2.8" TFT+Touchscreen for Raspberry Pi - [http://www.adafruit.com/products/1601](http://www.adafruit.com/products/1601).  
 However, the program can be run on any screen or computer in its own 320x240 window.

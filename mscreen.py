@@ -3,7 +3,7 @@
 ##--Michael duPont
 ##--METAR-RasPi : mscreen
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit 320x240 Touch PiTFT
-##--2014-10-28
+##--2014-11-05
 
 ##--Disable lines 14-18 and 58 for use with other screens/testing and add back in as necessary
 
@@ -130,7 +130,7 @@ class METARScreen:
 	#Runs station selection screen, updates ident, and displays load screen once selection made or cancelled
 	#Returns None
 	def selectStation(self , firstRun = False):
-		print('Select Loaded ' + time.strftime('%d %H:%M:%S'))
+		print(timestamp('Select Loaded'))
 		self.__selection_Load() #Load selection display
 		while True: #Input loop
 			for event in pygame.event.get():
@@ -157,7 +157,7 @@ class METARScreen:
 	#Display timeout message and sleep
 	#Returns None
 	def error_timeout(self):
-		print('Connection Timeout ' + time.strftime('%d %H:%M:%S'))
+		if logMETAR: print(timestamp('Connection Timeout'))
 		self.win.fill(white)  #Clear screen
 		self.win.blit(font32.render("No connection" , 1 , black) , (25,70))
 		self.win.blit(font32.render("Check back soon" , 1 , black) , (25,120))
@@ -379,9 +379,7 @@ class METARScreen:
 		#If Cancel
 		if (16 <= pos[0] <= 64) and (189 <= pos[1] <= 237): return False
 		#If station select
-		elif (76 <= pos[0] <= 124) and (189 <= pos[1] <= 237):
-			if logMETAR: print('Select Pressed' , time.strftime('- %d %H:%M:%S'))
-			return True
+		elif (76 <= pos[0] <= 124) and (189 <= pos[1] <= 237): return True
 		#If shutdown
 		elif (136 <= pos[0] <= 184) and (189 <= pos[1] <= 237): return self.__options_Shutdown()
 		#If invert color
@@ -444,28 +442,24 @@ class METARScreen:
 			for event in pygame.event.get():
 				if event.type == pygame.MOUSEBUTTONDOWN:
 					ret = self.__options_OnClick(pygame.mouse.get_pos())
-					if type(ret) == bool:
-						if logMETAR: print('Bool Passed:' , str(ret) , time.strftime('- %d %H:%M:%S'))
-						return ret
+					if type(ret) == bool: return ret
 
 #Program Main
 #Returns 1 if error, else 0
 def main():
 	screen = METARScreen() #Init screen
-	if logMETAR: print('\nProgram Boot' , time.strftime('- %d %H:%M:%S'))
+	if logMETAR: print('\n' + timestamp('Program Boot'))
 	firstRun , userSelected = True , True
 	lastMETAR = ''
 	screen.selectStation(firstRun) #Run firstRun station selection
 	while True:
-		if logMETAR: print('userSelected:' , str(userSelected) , time.strftime('- %d %H:%M:%S'))
 		METARtxt = getMETAR(getIdent(screen.screenIdent)) #Fetch current METAR
-		#METARtxt = 'KISM 261750Z VRB04KT 10SM SKC 27/09 A2999'
 		while type(METARtxt) == int:                      #Fetch data until success
-			if logMETAR: print('Error METAR' , str(METARtxt) , getIdent(screen.screenIdent) , time.strftime('- %d %H:%M:%S'))
+			if logMETAR: print(timestamp('Error METAR ' + str(METARtxt) + ' ' + getIdent(screen.screenIdent)))
 			if METARtxt == 0: screen.error_timeout()      #Bad Connection
 			elif METARtxt == 1:
 				if not userSelected:
-					if logMETAR: print('Ignoring non-user generated selection' , time.strftime('- %d %H:%M:%S'))
+					if logMETAR: print(timestamp('Ignoring non-user generated selection'))
 					METARtxt = copy(lastMETAR)
 					break
 				else: screen.error_badStation(firstRun) #Invalid Station
@@ -473,9 +467,9 @@ def main():
 			METARtxt = getMETAR(getIdent(screen.screenIdent))
 		firstRun , userSelected = False , False
 		lastMETAR = copy(METARtxt)
+		if logMETAR: print(timestamp(METARtxt))
 		while screen.displayMETAR(parseMETAR(METARtxt)): #Reload screen but don't get new data
 			if screen.options():       #Load options. If ident update required
-				print('\nNow entering new selection stage' , time.strftime('- %d %H:%M:%S'))
 				screen.selectStation() #Run station selection
 				userSelected = True
 				break
