@@ -3,11 +3,13 @@ METAR-RasPi
 
 ####Display ICAO METAR weather data with a Raspberry Pi and Adafruit displays
 
-Michael duPont - [https://mdupont.com](https://mdupont.com)
+Michael duPont - [http://mdupont.com](http://mdupont.com)
 
 Python 3.2.3 - Raspberry Pi (Raspbian)
 
 Download: `git clone https://github.com/flyinactor91/METAR-RasPi`
+
+Blog Post: [http://mdupont.com/Programming/METAR-RasPi](https://mdupont.com/Programming/METAR-RasPi)
 
 -----------
 

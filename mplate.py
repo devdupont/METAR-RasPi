@@ -3,7 +3,7 @@
 ##--Michael duPont
 ##--METAR-RasPi : mplate
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
-##--2014-11-05
+##--2015-01-06
 
 ##--Use plate keypad to select ICAO station/airport iden to display METAR data
 ##----Left/Right - Choose position
@@ -31,15 +31,15 @@ from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
 import os , sys
 
 ##--User Vars
-buttonInterval = 0.2        #Seconds between plate button reads
-scrollInterval = 0.5        #Seconds between row 2 char scroll
+buttonInterval = 0.2     #Seconds between plate button reads
+scrollInterval = 0.5     #Seconds between row 2 char scroll
 
 ##--Global Vars
 numRows = 2
 numCols = 16
 lcd = Adafruit_CharLCDPlate()
 lcdColors = [lcd.GREEN,lcd.BLUE,lcd.RED,lcd.VIOLET,lcd.ON]
-replacements = [['00000KT','CALM']]   #String replacement for Line2 (scrolling data)
+replacements = [['00000KT','CALM'],['10SM','UNLM']]   #String replacement for Line2 (scrolling data)
 path = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 #Program setup
@@ -143,7 +143,8 @@ def lcdShutdown():
 	lcd.backlight(lcdColors[4])
 	lcd.clear()
 	lcd.setCursor(0,0)
-	lcd.message('Shutdown the Pi?\nY N')
+	if shutdownOnExit: lcd.message('Shutdown the Pi?\nY N')
+	else: lcd.message('Quit the program?\nY N')
 	lcd.setCursor(2,1)
 	lcd.cursor()
 	sleep(1)   #Allow finger to be lifted from LR buttons
@@ -165,7 +166,7 @@ def lcdShutdown():
 	if not selection: return None
 	lcd.clear()
 	lcd.backlight(lcd.OFF)
-	os.system('shutdown -h now')
+	if shutdownOnExit: os.system('shutdown -h now')
 	sys.exit()
 
 #Returns tuple of display data from METAR txt (Line1,Line2,BLInt)

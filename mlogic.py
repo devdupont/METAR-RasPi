@@ -1,7 +1,7 @@
 ##--Michael duPont
 ##--METAR-RasPi : mlogic
 ##--Shared METAR settings and functions
-##--2014-11-05
+##--2015-01-06
 
 import urllib2 , string , time
 
@@ -9,7 +9,8 @@ import urllib2 , string , time
 updateInterval = 600.0    #Seconds between server pings
 timeoutInterval = 60.0    #Seconds between connection retries
 ident = [10 , 9 , 5 , 10] #Default station ident, ex. [10,9,5,10] = KJFK
-logMETAR = True           #Print METAR log. Use "file.py >> METARlog.txt"
+logMETAR = False          #Print METAR log. Use "file.py >> METARlog.txt"
+shutdownOnExit = False    #Set true to shutdown the Pi when exiting the program
 
 ##--Logic Vars
 cloudList = ['CLR','SKC','FEW','SCT','BKN','OVC']
@@ -112,11 +113,11 @@ def parseMETAR(txt):
 	return retWX
 
 #Returns int based on current flight rules from parsed METAR data
-#0=VFR , 1=MVFR , 2=IFR , 3=LIFR , 4=NotEnoughData
+#0=VFR , 1=MVFR , 2=IFR , 3=LIFR
+#Note: Common practice is to report IFR if visibility unavailable
 def getFlightRules(vis , cld):
 	#Parse visibility
-	if (vis == '') and (cld == ''): return 4 #Not enought data
-	if (vis == ''): vis = 99
+	if (vis == ''): return 2
 	elif vis.find('/') != -1:
 		if vis[0] == 'M': vis = 0
 		else: vis = int(vis[0]) / int(vis[2])
@@ -162,3 +163,21 @@ def translateWX(wx):
 #Adds timestamp to begining of print statement
 #Returns string of time + logString
 def timestamp(logString): return time.strftime('%d %H:%M:%S - ') + logString
+
+
+#This test main provides example usage for all included functions
+if __name__ == '__main__':
+	ret = timestamp(getIdent(ident) + '\n\n')
+	fr = ['VFR','MVFR','IFR','LIFR']
+	txt = getMETAR(getIdent(ident))
+	if type(txt) == int: 
+		if txt: ret += 'Station does not exist/Database lookup error'
+		else: ret += 'http connection error'
+	else:
+		data = parseMETAR(txt)
+		for key in data: ret += '{0}  --  {1}\n'.format(key , data[key])
+		ret += '\nFlight rules for "{0}" and "{1}"  --  "{2}"'.format(data['Visibility'] , getCeiling(data['Cloud-List']) , fr[getFlightRules(data['Visibility'] , getCeiling(data['Cloud-List']))])
+		if len(data['Other-List']) > 0:
+			ret += '\nTranslated WX'
+			for wx in data['Other-List']: ret += '  --  ' + translateWX(wx)
+	print(ret)

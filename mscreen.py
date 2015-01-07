@@ -3,7 +3,7 @@
 ##--Michael duPont
 ##--METAR-RasPi : mscreen
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit 320x240 Touch PiTFT
-##--2014-11-05
+##--2015-01-06
 
 ##--Disable lines 14-18 and 58 for use with other screens/testing and add back in as necessary
 
@@ -11,15 +11,9 @@ from mlogic import *
 from copy import copy
 import pygame , sys , os , time , math
 
-os.environ["SDL_FBDEV"] = "/dev/fb1"
-os.environ["SDL_MOUSEDEV"] = "/dev/input/touchscreen"
-os.environ["SDL_MOUSEDRV"] = "TSLIB"
-#Disable line below to test/run on non-RaspPi computer
-os.environ["SDL_VIDEODRIVER"] = "fbcon"
-
 ##--User Vars
 invertBW = True   #Aka dark mode. Replace white and black pixels
-shutdownOnExit = False   #Set true to shutdown the Pi when exiting the program
+runOnPi = True    #Set to False if not running on a RasPi. Changes env settings
 
 ##--Global Vars
 specialchar = [u'\u25b2',u'\u25bc',u'\u2713',u'\u2715',u'\u2699',u'\u00B0',u'\u2600',u'\u263E',u'\u2139']
@@ -463,7 +457,7 @@ def main():
 					METARtxt = copy(lastMETAR)
 					break
 				else: screen.error_badStation(firstRun) #Invalid Station
-			else: return 1                                #Code error
+			else: return 1                              #Code error
 			METARtxt = getMETAR(getIdent(screen.screenIdent))
 		firstRun , userSelected = False , False
 		lastMETAR = copy(METARtxt)
@@ -475,4 +469,10 @@ def main():
 				break
 	return 0
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+	if runOnPi:
+		os.environ["SDL_FBDEV"] = "/dev/fb1"
+		os.environ["SDL_MOUSEDEV"] = "/dev/input/touchscreen"
+		os.environ["SDL_MOUSEDRV"] = "TSLIB"
+		os.environ["SDL_VIDEODRIVER"] = "fbcon"
+	main()
