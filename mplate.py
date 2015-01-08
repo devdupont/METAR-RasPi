@@ -33,6 +33,7 @@ import os , sys
 ##--User Vars
 buttonInterval = 0.2     #Seconds between plate button reads
 scrollInterval = 0.5     #Seconds between row 2 char scroll
+includeRemarks = False   #Remarks section in scroll line
 
 ##--Global Vars
 numRows = 2
@@ -179,11 +180,17 @@ def createDisplayData(txt):
 	#Create Lines
 	alt = parsedWX['Altimeter']
 	line1 = parsedWX['Station']+' '+parsedWX['Time'][2:]+' '+alt[:2]+'.'+alt[2:]
-	if txt.find('A'+alt) != -1:	line2 = txt[:txt.find('A'+alt)-1].split(' ',2)[2]
-	elif txt.find('RMK') != -1:	line2 = txt[:txt.find('RMK')-1].split(' ',2)[2]
-	else: line2 = txt.split(' ',2)[2]
+	line2 = txt.split(' ',2)[2] #Remove ID and Time
+	print(line2)
+	line2 = string.replace(line2 , ' A'+alt , '') #Remove Alt
+	print(line2)
+	if (not includeRemarks) and line2.find('RMK') != -1:
+		print('Rem RMK')
+		line2 = line2[:line2.find('RMK')] #Opt remove Remarks
+	print(line2)
 	for rep in replacements: line2 = string.replace(line2 , rep[0] , rep[1]) #Any other string replacements
-	return line1 , line2 , getFlightRules(parsedWX['Visibility'],getCeiling(parsedWX['Cloud-List']))
+	print(line2)
+	return line1 , line2.strip(' ') , getFlightRules(parsedWX['Visibility'],getCeiling(parsedWX['Cloud-List']))
 
 #Display METAR data on LCD plate
 #Returns approx time elapsed (float)
