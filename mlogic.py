@@ -154,6 +154,7 @@ def translateWX(wx):
 	elif wx[0] == '-':
 		wxString = 'Light '
 		wx = wx[1:]
+	if len(wx) not in [2,4,6]: return wx  #Return wx if wx is not a code, ex R03/03002V03
 	for i in range(len(wx)//2):
 		if wx[:2] in wxReplacements: wxString += wxReplacements[wx[:2]] + ' '
 		else: wxString += wx[:2]
