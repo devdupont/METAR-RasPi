@@ -241,19 +241,19 @@ class METARScreen:
 		#Cloud Layers
 		clouds = copy(data['Cloud-List'])
 		clouds.reverse()
-		if clouds[0] in ['CLR','SKC']: self.win.blit(font32.render('CLR' , 1 , blue) , (226,120))
+		if len(clouds) == 0 or clouds[0] in ['CLR','SKC']: self.win.blit(font32.render('CLR' , 1 , blue) , (226,120))
 		else:
 			top = 80
 			LRBool = 1
 			for cloud in clouds:
-				if cloud[5] != '/':
-					if int(cloud[3:6]) > top: top = int(cloud[3:6])
-					drawHeight = 220-160*int(cloud[3:6])/top
+				if cloud[1][0] != '/':
+					if int(cloud[1]) > top: top = int(cloud[1])
+					drawHeight = 220-160*int(cloud[1])/top
 					if LRBool > 0:
-						self.win.blit(font12.render(cloud , 1 , blue) , (210,drawHeight))
+						self.win.blit(font12.render(cloud[0]+cloud[1] , 1 , blue) , (210,drawHeight))
 						pygame.draw.line(self.win , blue , (262,drawHeight+7) , (308,drawHeight+7))
 					else:
-						self.win.blit(font12.render(cloud , 1 , blue) , (260,drawHeight))
+						self.win.blit(font12.render(cloud[0]+cloud[1] , 1 , blue) , (260,drawHeight))
 						pygame.draw.line(self.win , blue , (210,drawHeight+7) , (255,drawHeight+7))
 					LRBool *= -1
 		#Other Weather data

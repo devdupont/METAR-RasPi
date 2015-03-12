@@ -43,6 +43,23 @@ def getMETAR(station):
 	except:
 		return 0
 
+#Transforms a cloud string into a list of strings: [Type , Height (, Optional Modifier)]
+#Returns cloud string list
+def splitCloud(cloud, beginsWithVV):
+	splitCloud = []
+	if beginsWithVV:
+		splitCloud.append(cloud[:2])
+		cloud = cloud[2:]
+	else:
+		splitCloud.append(cloud[:3])
+		cloud = cloud[3:]
+	while len(cloud) > 3:
+		splitCloud.append(cloud[:3])
+		cloud = cloud[3:]
+	splitCloud.append(cloud)
+	return splitCloud
+	
+
 #Returns a dictionary of parsed METAR data
 #Keys: Station, Time, Wind-Direction, Wind-Speed, Wind-Gust, Visibility, Altimeter, Temperature, Dewpoint, Cloud-List, Other-List, Remarks
 def parseMETAR(txt):
@@ -104,8 +121,12 @@ def parseMETAR(txt):
 	#Clouds
 	clouds = []
 	for i in reversed(range(len(wxData))):
-		if (wxData[i][:3] in cloudList) or (wxData[i][:2] == 'VV'):
-			clouds.append(wxData.pop(i))
+		if wxData[i][:3] in cloudList[2:]:
+			clouds.append(splitCloud(wxData.pop(i) , False))
+		elif wxData[i] in cloudList[:2]:
+			wxData.pop(i)
+		elif wxData[i][:2] == 'VV':
+			clouds.append(splitCloud(wxData.pop(i) , True))
 	clouds.reverse()
 	retWX['Cloud-List'] = clouds
 	#Other weather
@@ -115,7 +136,7 @@ def parseMETAR(txt):
 #Returns int based on current flight rules from parsed METAR data
 #0=VFR , 1=MVFR , 2=IFR , 3=LIFR
 #Note: Common practice is to report IFR if visibility unavailable
-def getFlightRules(vis , cld):
+def getFlightRules(vis , splitCloud):
 	#Parse visibility
 	if (vis == ''): return 2
 	elif vis.find('/') != -1:
@@ -123,8 +144,7 @@ def getFlightRules(vis , cld):
 		else: vis = int(vis[0]) / int(vis[2])
 	else: vis = int(vis)
 	#Parse ceiling
-	if (cld[:3] == 'BKN') or (cld[:3] == 'OVC'): cld = int(cld[3:6])
-	elif cld[:2] == 'VV': cld = int(cld[2:5])
+	if splitCloud: cld = int(splitCloud[1])
 	else: cld = 99
 	#Determine flight rules
 	if (vis < 5) or (cld < 30):
@@ -135,14 +155,14 @@ def getFlightRules(vis , cld):
 		return 1 #MVFR
 	return 0 #VFR
 
-#Returns string of ceiling layer from Cloud-List or '' if none found
+#Returns list of ceiling layer from Cloud-List or None if none found
 #Only 'Broken', 'Overcast', and 'Vertical Visibility' are considdered ceilings
 #Prevents errors due to lack of cloud information (eg. '' or 'FEW///')
 def getCeiling(clouds):
 	for cloud in clouds:
-		if (cloud[len(cloud)-1] != '/') and ((cloud[:3] == 'BKN') or (cloud[:3] == 'OVC') or (cloud[:2] == 'VV')):
+		if (cloud[1][0] != '/') and (cloud[0] in ['OVC','BKN','VV']):
 			return cloud
-	return ''
+	return None
 
 #Translates METAR weather codes into readable strings
 #Returns translated string of variable length
