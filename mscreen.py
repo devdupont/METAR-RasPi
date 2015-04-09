@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 ##--Michael duPont
 ##--METAR-RasPi : mscreen
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit 320x240 Touch PiTFT
-##--2015-01-06
+##--2015-04-08
 
-##--Disable lines 14-18 and 58 for use with other screens/testing and add back in as necessary
+##--Set runOnPi to False and disable line 52 for use with other screens/testing and add back in as necessary
 
 from mlogic import *
 from copy import copy
@@ -48,8 +48,11 @@ class METARScreen:
 	oldIdent = copy(ident)
 	
 	def __init__(self):
+		print('Running init')
 		self.win = pygame.display.set_mode((self.screenWidth,self.screenHeight))
-		pygame.mouse.set_visible(False)   #Hide mouse for touchscreen input/Disable if test non touchscreen
+		if runOnPi: pygame.mouse.set_visible(False)   #Hide mouse for touchscreen input/Disable if test non touchscreen
+		print('Finished running init')
+		
 	
 	#Selection touch button control
 	#Returns True if selection has been made, else False
@@ -191,6 +194,9 @@ class METARScreen:
 		elif windDir == 'VRB': self.win.blit(font26.render('VRB' , 1 , black) , (15,66))
 		elif windDir != '' and windDir[0] != '/': 
 			pygame.draw.line(self.win , red , (40,80) , (40+35*math.cos((int(windDir)-90)*math.pi/180),80+35*math.sin((int(windDir)-90)*math.pi/180)) , 2)
+			if len(data['Wind-Variable-Dir']) == 2:
+				pygame.draw.line(self.win , blue , (40,80) , (40+35*math.cos((int(data['Wind-Variable-Dir'][0])-90)*math.pi/180),80+35*math.sin((int(data['Wind-Variable-Dir'][0])-90)*math.pi/180)) , 2)
+				pygame.draw.line(self.win , blue , (40,80) , (40+35*math.cos((int(data['Wind-Variable-Dir'][1])-90)*math.pi/180),80+35*math.sin((int(data['Wind-Variable-Dir'][1])-90)*math.pi/180)) , 2)
 			self.win.blit(font26.render(windDir , 1 , black) , (15,66))
 		else: self.win.blit(font48.render(specialchar[3] , 1 , red) , (20,54))
 		if data['Wind-Speed'] == '00': self.win.blit(font18.render('Calm' , 1 , black) , (17,126))
@@ -211,8 +217,10 @@ class METARScreen:
 		if temp != '' and temp[0] != '/':
 			if temp[0] == 'M': temp = -1 * int(temp[1:])
 			else: temp = int(temp)
-			if invertBW > 0: self.win.blit(pygame.image.load(path+'/icons/Therm'+str(temp//12+2)+'I.png') , (60,50))
-			else: self.win.blit(pygame.image.load(path+'/icons/Therm'+str(temp//12+2)+'.png') , (60,50))
+			fileNum = temp//12+2
+			if fileNum < 0: fileNum = 0
+			if invertBW > 0: self.win.blit(pygame.image.load(path+'/icons/Therm'+str(fileNum)+'I.png') , (60,50))
+			else: self.win.blit(pygame.image.load(path+'/icons/Therm'+str(fileNum)+'.png') , (60,50))
 			self.win.blit(font18.render('TMP: '+str(temp)+specialchar[5] , 1 , black) , (110,50))
 			tempDiff = temp - 15
 			if tempDiff < 0: self.win.blit(font18.render('STD: -'+str(abs(tempDiff))+specialchar[5] , 1 , black) , (110,82))
@@ -236,7 +244,8 @@ class METARScreen:
 		#Visibility
 		vis = data['Visibility']
 		if vis != '' and vis[0] != '/':
-			self.win.blit(font18.render('VIS: '+vis+' SM' , 1 , black) , (90,210))
+			if len(vis) == 4 and vis.isdigit(): self.win.blit(font18.render('VIS: '+vis+'M' , 1 , black) , (90,210))
+			else: self.win.blit(font18.render('VIS: '+vis+'SM' , 1 , black) , (90,210))
 		else: self.win.blit(font18.render('VIS: --' , 1 , black) , (90,210))
 		#Cloud Layers
 		clouds = copy(data['Cloud-List'])
@@ -335,7 +344,9 @@ class METARScreen:
 					if (16 <= pos[0] <= 64) and (189 <= pos[1] <= 237): return True
 					#If other wx/rmk button
 					elif moreData and (3 <= pos[0] <= 83) and (159 <= pos[1] <= 186):
-						self.__display_OtherData(data['Other-List'] , data['Remarks'])
+						otherList = data['Other-List']
+						if data['Runway-Visibility'] != '': otherList = otherList.append(data['Runway-Visibility'])
+						self.__display_OtherData(otherList , data['Remarks'])
 						self.__display_LoadStatic()
 						moreData = self.__display_LoadDynamic(data)
 		return False

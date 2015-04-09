@@ -3,14 +3,14 @@
 ##--Michael duPont
 ##--METAR-RasPi : mplate
 ##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
-##--2015-01-06
+##--2015-04-08
 
 ##--Use plate keypad to select ICAO station/airport iden to display METAR data
 ##----Left/Right - Choose position
 ##----Up/Down    - Choose character A-9
 ##----Select     - Confirm station iden
 ##--LCD panel now displays current METAR data (pulled from aviationweather.gov)
-##----Line1      - IDEN HHMMZ BA.RO
+##----Line1      - IDEN HHMMZ BA.RO   or   IDEN HHMMZ NOSIG
 ##----Line2      - Rest of METAR report
 ##--LCD backlight indicates current Flight Rules
 ##----Green      - VFR
@@ -33,6 +33,7 @@ import os , sys
 ##--User Vars
 buttonInterval = 0.2     #Seconds between plate button reads
 scrollInterval = 0.5     #Seconds between row 2 char scroll
+displayNOSIG = False     #Replace row 1 altimeter with NOSIG if present in report
 includeRemarks = False   #Remarks section in scroll line
 
 ##--Global Vars
@@ -40,8 +41,7 @@ numRows = 2
 numCols = 16
 lcd = Adafruit_CharLCDPlate()
 lcdColors = [lcd.GREEN,lcd.BLUE,lcd.RED,lcd.VIOLET,lcd.ON]
-replacements = [['00000KT','CALM'],['10SM','UNLM']]   #String replacement for Line2 (scrolling data)
-path = os.path.abspath(os.path.dirname(sys.argv[0]))
+replacements = [['00000KT','CALM'],['00000MPS','CALM'],['10SM','UNLM'],['9999','UNLM']]   #String replacement for Line2 (scrolling data)
 
 #Program setup
 #Returns None
@@ -178,10 +178,18 @@ def createDisplayData(txt):
 	#Create dictionary of data
 	parsedWX = parseMETAR(txt)
 	#Create Lines
-	alt = parsedWX['Altimeter']
-	line1 = parsedWX['Station']+' '+parsedWX['Time'][2:]+' '+alt[:2]+'.'+alt[2:]
+	if displayNOSIG:
+		if parsedWX['Remarks'].find('NOSIG') != -1:
+			line1 = parsedWX['Station']+' '+parsedWX['Time'][2:]+' NOSIG'
+			txt = txt.replace(' NOSIG' , '')
+		else: line1 = parsedWX['Station']+' '+parsedWX['Time'][2:]
+	else:
+		alt = parsedWX['Altimeter']
+		if alt == '': alt = '----'
+		line1 = parsedWX['Station']+' '+parsedWX['Time'][2:]+' '+alt[:2]+'.'+alt[2:]
+		txt = txt.replace(' A'+alt , '') #Remove Alt
+		txt = txt.replace(' Q'+alt , '') #Remove Alt
 	line2 = txt.split(' ',2)[2] #Remove ID and Time
-	line2 = string.replace(line2 , ' A'+alt , '') #Remove Alt
 	if (not includeRemarks) and line2.find('RMK') != -1: line2 = line2[:line2.find('RMK')] #Opt remove Remarks
 	for rep in replacements: line2 = string.replace(line2 , rep[0] , rep[1]) #Any other string replacements
 	return line1 , line2.strip(' ') , getFlightRules(parsedWX['Visibility'],getCeiling(parsedWX['Cloud-List']))
@@ -249,4 +257,4 @@ def main():
 				
 	return 0
 
-main()
+if __name__ == '__main__': main()
