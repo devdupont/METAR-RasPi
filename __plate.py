@@ -1,42 +1,39 @@
-#!/usr/bin/python3
+"""
+Michael duPont - michael@mdupont.com
+plate.py - Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
 
-##--Michael duPont
-##--METAR-RasPi : mplate
-##--Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
-##--2015-04-08
+Use plate keypad to select ICAO station/airport iden to display METAR data
+  Left/Right - Choose position
+  Up/Down    - Choose character A-9
+  Select     - Confirm station iden
+LCD panel now displays current METAR data (pulled from aviationweather.gov)
+  Line1      - IDEN HHMMZ BA.RO   or   IDEN HHMMZ NOSIG
+  Line2      - Rest of METAR report
+LCD backlight indicates current Flight Rules
+  Green      - VFR
+  Blue       - MVFR
+  Red        - IFR
+  Violet     - LIFR
+At the end of a line scroll:
+  Holding select button displays iden selection screen
+  Holding left and right buttons gives option to shutdown the Pi
 
-##--Use plate keypad to select ICAO station/airport iden to display METAR data
-##----Left/Right - Choose position
-##----Up/Down    - Choose character A-9
-##----Select     - Confirm station iden
-##--LCD panel now displays current METAR data (pulled from aviationweather.gov)
-##----Line1      - IDEN HHMMZ BA.RO   or   IDEN HHMMZ NOSIG
-##----Line2      - Rest of METAR report
-##--LCD backlight indicates current Flight Rules
-##----Green      - VFR
-##----Blue       - MVFR
-##----Red        - IFR
-##----Violet     - LIFR
-##--At the end of a line scroll:
-##----Holding select button displays iden selection screen
-##----Holding left and right buttons gives option to shutdown the Pi
+Uses Adafruit RGB Negative 16x2 LCD - https://www.adafruit.com/product/1110
+Software library for LCD plate - https://github.com/adafruit/Adafruit-Raspberry-Pi-Python-Code
+"""
 
-##--Uses Adafruit RGB Negative 16x2 LCD - https://www.adafruit.com/product/1110
-##--Software library for LCD plate - https://github.com/adafruit/Adafruit-Raspberry-Pi-Python-Code
-
-from mlogic import *
-from time import sleep
+# stdlib
+import os
+import sys
 from copy import copy
+from time import sleep
+# library
+import avwx
 from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
-import os , sys
+# module
+import config as cfg
+from common import logger, ident_to_station
 
-##--User Vars
-buttonInterval = 0.2     #Seconds between plate button reads
-scrollInterval = 0.5     #Seconds between row 2 char scroll
-displayNOSIG = False     #Replace row 1 altimeter with NOSIG if present in report
-includeRemarks = False   #Remarks section in scroll line
-
-##--Global Vars
 numRows = 2
 numCols = 16
 lcd = Adafruit_CharLCDPlate()
@@ -115,12 +112,12 @@ def lcdSelect():
 	lcd.backlight(lcdColors[4])
 	selectMETAR()
 	lcd.clear()
-	lcd.message(getIdent(ident)+' selected\nFetching METAR')
+	lcd.message(ident_to_station(ident)+' selected\nFetching METAR')
 
 #Display timeout message and sleep
 #Returns None
 def lcdTimeout():
-	if logMETAR: print(timestamp('Connection Timeout'))
+	logger.warning('Connection Timeout')
 	lcd.backlight(lcdColors[4])
 	lcd.clear()
 	lcd.setCursor(0,0)
@@ -132,7 +129,7 @@ def lcdTimeout():
 def lcdBadStation():
 	lcd.clear()
 	lcd.setCursor(0,0)
-	lcd.message('No Weather Data\nFor '+getIdent(ident))
+	lcd.message('No Weather Data\nFor '+ident_to_station(ident))
 	sleep(3)
 	lcdSelect()	
 
@@ -229,22 +226,22 @@ def main():
 	setup()     #Initial Setup
 	lcdSelect() #Show Ident Selection
 	while True:
-		METARtxt = getMETAR(getIdent(ident)) #Fetch current METAR
+		METARtxt = getMETAR(ident_to_station(ident)) #Fetch current METAR
 		while type(METARtxt) == int: #Fetch data until success
 			if METARtxt == 0: lcdTimeout()       #Bad Connection
 			elif METARtxt == 1:
 				if userSelected: lcdBadStation() #Invalid Station
 				else:
-					if logMETAR: print(timestamp('Ignoring non-user generated selection'))
+					logger.info('Ignoring non-user generated selection')
 					METARtxt = copy(lastMETAR)   #Server data lookup error
 					break
 			else: return 1                       #Code error
-			METARtxt = getMETAR(getIdent(ident))
+			METARtxt = getMETAR(ident_to_station(ident))
 		userSelected = False
 		lastMETAR = copy(METARtxt)
-		if logMETAR: print(timestamp(METARtxt))
+		logger.info(METARtxt)
 		L1,L2,FR = createDisplayData(METARtxt)            #Create display data
-		if logMETAR: print('\t' + L1 + '\n\t' + L2) #Log METAR data
+		logger.info('\t' + L1 + '\n\t' + L2) #Log METAR data
 		totalTime = 0.0
 		while totalTime < updateInterval:        #Loop until program fetches new data
 			totalTime += displayMETAR(L1,L2,FR)  #Cycle display one loop. Add elapsed time to total time
