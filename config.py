@@ -10,10 +10,10 @@ size = (320, 240) # Adafruit 2.8" screen
 # size = (1, 1) # Pi Foundation 7" screen
 
 # Seconds between server pings
-update_interval = 600.0
+update_interval = 600
 
 # Seconds between connection retries
-timeout_interval = 60.0
+timeout_interval = 60
 
 # Set log level - CRITICAL, ERROR, WARNING, INFO, DEBUG
 log_level = logging.DEBUG
@@ -39,9 +39,6 @@ display_nosig = False
 include_remarks = False
 
 #------- Screen Settings ------#
-
-# Aka dark mode. Replace white and black pixels
-invert = True
 
 #Set to False if not running on a RasPi. Changes env settings
 on_pi = False

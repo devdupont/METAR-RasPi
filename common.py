@@ -17,7 +17,7 @@ IDENT_CHARS = [
 ]
 
 if cfg.log_file is None:
-    logger = logging.getLogger('METAR Pi')
+    logger = logging.getLogger()
 else:
     logger = logging.FileHandler(cfg.log_file)
 logger.setLevel(cfg.log_level)

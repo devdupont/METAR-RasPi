@@ -5,7 +5,7 @@ METAR-RasPi
 
 Michael duPont - [http://mdupont.com](http://mdupont.com)
 
-Python 3.2.3 - Raspberry Pi (Raspbian)
+Python 3.6.5 - Raspberry Pi (Raspbian)
 
 Download: `git clone https://github.com/flyinactor91/METAR-RasPi`
 
