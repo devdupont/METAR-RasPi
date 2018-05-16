@@ -11,7 +11,7 @@ import math
 import sys
 import time
 from copy import copy, deepcopy
-from os import environ, path, system
+from os import path, putenv, system
 from typing import Callable
 # library
 import avwx
@@ -794,8 +794,8 @@ def main():
 
 if __name__ == '__main__':
     if cfg.on_pi:
-        environ["SDL_FBDEV"] = "/dev/fb1"
-        environ["SDL_MOUSEDEV"] = "/dev/input/touchscreen"
-        environ["SDL_MOUSEDRV"] = "TSLIB"
-        environ["SDL_VIDEODRIVER"] = "fbcon"
+        putenv('SDL_FBDEV', '/dev/fb1')
+        putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
+        putenv('SDL_MOUSEDRV', 'TSLIB')
+        putenv('SDL_VIDEODRIVER', 'fbcon')
     main()
