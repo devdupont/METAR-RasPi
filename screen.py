@@ -10,13 +10,12 @@ import asyncio
 import math
 import sys
 import time
-from copy import copy, deepcopy
+from copy import copy
 from os import path, putenv, system
 from typing import Callable
 # library
 import avwx
 import pygame
-import requests
 # module
 import common
 import config as cfg
@@ -346,7 +345,7 @@ class METARScreen:
         """
         try:
             updated = self.metar.update()
-        except (TimeoutError, requests.exceptions.ConnectionError):
+        except TimeoutError:
             self.error_connection()
         except avwx.exceptions.InvalidRequest:
             self.error_station()
@@ -365,7 +364,7 @@ class METARScreen:
         Update the current station from ident and display new main screen
         """
         try:
-            avwx.core.valid_station(self.station)
+            avwx.station.valid_station(self.station)
         except avwx.exceptions.BadStation:
             return self.error_station()
         self.draw_loading_screen()
@@ -475,63 +474,56 @@ class METARScreen:
         pygame.draw.circle(self.win, self.c.GRAY, (40,80), 35, 3)
         pygame.display.flip()
 
-    def __main_draw_dynamic(self, data: dict) -> bool:
+    def __draw_wind(self, data: avwx.structs.MetarData, unit: str):
         """
-        Load Main dynamic foreground elements
-
-        Returns True if "Other-WX" or "Remarks" is not empty, else False
+        Draw the dynamic wind elements
         """
-        # Station and Time
-        time_text = data['Station']+'  '+data['Time'][:2]+'-'+data['Time'][2:4]+':'+data['Time'][4:]
-        self.win.blit(FONT26.render(time_text, 1, self.c.BLACK), (5,5))
-        # Current Flight Rules
-        fr = data['Flight-Rules'] or 'N/A'
-        fr_color, fr_loc = fr_display[fr]
-        self.win.blit(FONT26.render(fr, 1, fr_color), fr_loc)
-        # Wind
-        windDir = data['Wind-Direction']
-        if data['Wind-Speed'] == '00':
+        wdir = data.wind_direction
+        speed = data.wind_speed
+        gust = data.wind_gust
+        var = data.wind_variable_direction
+        if not speed.value:
             self.win.blit(FONT18.render('Calm', 1, self.c.BLACK), (17, 126))
-        elif data['Wind-Speed'].find('-') != -1:
-            self.win.blit(FONT18.render(data['Wind-Speed']+' kt', 1, self.c.BLACK), (5, 116))
+            return
+        self.win.blit(FONT18.render(f"{speed.value} {unit}", 1, self.c.BLACK), (17, 116))
+        if wdir.repr == 'VRB':
+            self.win.blit(FONT26.render('VRB', 1, self.c.BLACK), (15, 66))
+        elif wdir:
+            def rad(deg):
+                return (deg-90) * math.pi / 180
+            pygame.draw.line(self.win, self.c.RED, (40,80), (40+35*math.cos(rad(wdir.value)),80+35*math.sin(rad(wdir.value))), 2)
+            if data.wind_variable_direction:
+                pygame.draw.line(self.win, self.c.BLUE, (40,80), (40+35*math.cos(var[0].value),80+35*math.sin(var[0].value)), 2)
+                pygame.draw.line(self.win, self.c.BLUE, (40,80), (40+35*math.cos(var[1].value),80+35*math.sin(var[1].value)), 2)
+            self.win.blit(FONT26.render(str(wdir.value), 1, self.c.BLACK), (15, 66))
         else:
-            self.win.blit(FONT18.render(data['Wind-Speed']+' kt', 1, self.c.BLACK), (17, 116))
-            if windDir == 'VRB':
-                self.win.blit(FONT26.render('VRB', 1, self.c.BLACK), (15, 66))
-            elif windDir != '' and windDir[0] != '/':
-                pygame.draw.line(self.win, self.c.RED, (40,80), (40+35*math.cos((int(windDir)-90)*math.pi/180),80+35*math.sin((int(windDir)-90)*math.pi/180)), 2)
-                if len(data['Wind-Variable-Dir']) == 2:
-                    pygame.draw.line(self.win, self.c.BLUE, (40,80), (40+35*math.cos((int(data['Wind-Variable-Dir'][0])-90)*math.pi/180),80+35*math.sin((int(data['Wind-Variable-Dir'][0])-90)*math.pi/180)), 2)
-                    pygame.draw.line(self.win, self.c.BLUE, (40,80), (40+35*math.cos((int(data['Wind-Variable-Dir'][1])-90)*math.pi/180),80+35*math.sin((int(data['Wind-Variable-Dir'][1])-90)*math.pi/180)), 2)
-                self.win.blit(FONT26.render(windDir, 1, self.c.BLACK), (15, 66))
-            else:
-                self.win.blit(FONT48.render(SpChar.CANCEL, 1, self.c.RED), (20, 54))
-            if data['Wind-Gust'].find('-') != -1:
-                self.win.blit(FONT18.render('G: '+data['Wind-Gust'], 1, self.c.BLACK), (5, 137))
-            elif data['Wind-Gust'] != '':
-                self.win.blit(FONT18.render('G: '+data['Wind-Gust'], 1, self.c.BLACK), (17, 137))
-            else:
-                self.win.blit(FONT18.render('No Gust', 1, self.c.BLACK), (5, 137))
-        # Temperature / Dewpoint / Humidity
-        temp = data['Temperature']
-        dew = data['Dewpoint']
-        dew_text = 'DEW: --'
-        if dew != '' and dew[0] != '/':
-            dew = -1 * int(dew[1:]) if dew[0] == 'M' else int(dew)
-            dew_text = 'DEW: ' + str(dew) + SpChar.DEGREES
-        self.win.blit(FONT18.render(dew_text, 1, self.c.BLACK), (105, 114))
+            self.win.blit(FONT48.render(SpChar.CANCEL, 1, self.c.RED), (20, 54))
+        gust_text = f"G: {gust.value}" if gust else "No Gust"
+        self.win.blit(FONT18.render(gust_text, 1, self.c.BLACK), (5, 137))
+
+    def __draw_temp_dew_humidity(self, data: avwx.structs.MetarData):
+        """
+        Draw the dynamic temperature, dewpoint, and humidity elements
+        """
+        temp = data.temperature
+        dew = data.dewpoint
         temp_text = 'TMP: --'
         diff_text = 'STD: --'
+        dew_text = 'DEW: --'
         therm_level = 0
-        if temp != '' and temp[0] != '/':
-            temp = -1 * int(temp[1:]) if temp[0] == 'M' else int(temp)
-            temp_text = 'TMP: ' + str(temp) + SpChar.DEGREES
-            therm_level = temp // 12 + 2
+        # Dewpoint
+        if dew:
+            dew_text = f'DEW: {dew.value}{SpChar.DEGREES}'
+        self.win.blit(FONT18.render(dew_text, 1, self.c.BLACK), (105, 114))
+        # Temperature
+        if temp:
+            temp_text = f'TMP: {temp.value}{SpChar.DEGREES}'
+            therm_level = temp.value // 12 + 2
             if therm_level < 0:
                 therm_level = 0
-            temp_diff = temp - 15
-            diff_text = '-' if temp_diff < 0 else '+'
-            diff_text = 'STD: ' + diff_text + str(abs(temp_diff)) + SpChar.DEGREES
+            temp_diff = temp.value - 15
+            diff_sign = '-' if temp_diff < 0 else '+'
+            diff_text = f'STD: {diff_sign}{abs(temp_diff)}{SpChar.DEGREES}'
         add_i = 'I' if self.inverted else ''
         therm_icon = f'Therm{therm_level}{add_i}.png'
         self.win.blit(FONT18.render(temp_text, 1, self.c.BLACK), (110, 50))
@@ -539,42 +531,63 @@ class METARScreen:
         self.win.blit(pygame.image.load(path.join(LOC, 'icons', therm_icon)), (60, 50))
         # Humidity
         hmd_text = 'HMD: --'
-        if isinstance(temp, int) and isinstance(dew, int):
-            relHum = str((6.11*10.0**(7.5*dew/(237.7+dew)))/(6.11*10.0**(7.5*temp/(237.7+temp)))*100)
-            hmd_text = 'HMD: ' + relHum[:relHum.find('.')] + '%'
+        if isinstance(temp.value, int) and isinstance(dew.value, int):
+            relHum = (6.11*10.0**(7.5*dew.value/(237.7+dew.value)))/(6.11*10.0**(7.5*temp.value/(237.7+temp.value)))*100
+            hmd_text = f'HMD: {int(relHum)}%'
         self.win.blit(FONT18.render(hmd_text, 1, self.c.BLACK), (90,146))
+
+    def __draw_clouds(self, clouds: [avwx.structs.Cloud]):
+        """
+        Draw cloud layers in chart
+        """
+        if not clouds:
+            self.win.blit(FONT32.render('CLR', 1, self.c.BLUE), (226,120))
+            return
+        top = 80
+        LRBool = 1
+        for cloud in clouds[::-1]:
+            if cloud.base:
+                if cloud.base > top:
+                    top = cloud.base
+                drawHeight = 220-160*cloud.base/top
+                if LRBool > 0:
+                    self.win.blit(FONT12.render(cloud.repr, 1, self.c.BLUE), (210,drawHeight))
+                    pygame.draw.line(self.win, self.c.BLUE, (262,drawHeight+7), (308,drawHeight+7))
+                else:
+                    self.win.blit(FONT12.render(cloud.repr, 1, self.c.BLUE), (260,drawHeight))
+                    pygame.draw.line(self.win, self.c.BLUE, (210,drawHeight+7), (255,drawHeight+7))
+                LRBool *= -1
+
+    def __main_draw_dynamic(self, data: avwx.structs.MetarData, units: avwx.structs.Units) -> bool:
+        """
+        Load Main dynamic foreground elements
+
+        Returns True if "Other-WX" or "Remarks" is not empty, else False
+        """
+        # Station and Time
+        time_text = data.station + "  " + data.time.dt.strftime(r"%d-%H:%M")
+        self.win.blit(FONT26.render(time_text, 1, self.c.BLACK), (5,5))
+        # Current Flight Rules
+        fr = data.flight_rules or 'N/A'
+        fr_color, fr_loc = fr_display[fr]
+        self.win.blit(FONT26.render(fr, 1, fr_color), fr_loc)
+        # Wind
+        self.__draw_wind(data, units.wind_speed)
+        # Temperature / Dewpoint / Humidity
+        self.__draw_temp_dew_humidity(data)
         # Altimeter
-        altm = data['Altimeter']
+        altm = data.altimeter
         altm_text = 'ALT: --'
-        if altm != '' and altm[0] != '/':
-            altm_text = 'ALT:  ' + altm[:2] + '.' + altm[2:]
+        if altm:
+            altm_text = f"ALT: {altm.value}"
         self.win.blit(FONT18.render(altm_text, 1, self.c.BLACK), (90, 178))
         # Visibility
-        vis = data['Visibility']
         vis_text = 'VIS: --'
-        if vis != '' and vis[0] != '/':
-            vis_unit = 'M' if len(vis) == 4 and vis.isdigit() else 'SM'
-            vis_text = 'VIS: ' + vis + vis_unit
+        if data.visibility:
+            vis_text = f"VIS: {data.visibility.value}{units.visibility}"
         self.win.blit(FONT18.render(vis_text, 1, self.c.BLACK), (90,210))
         # Cloud Layers
-        clouds = data['Cloud-List']
-        if len(clouds) == 0 or clouds[0] in ['CLR','SKC']:
-            self.win.blit(FONT32.render('CLR', 1, self.c.BLUE), (226,120))
-        else:
-            top = 80
-            LRBool = 1
-            for cloud in clouds[::-1]:
-                if cloud[1][0] != '/':
-                    if int(cloud[1]) > top:
-                        top = int(cloud[1])
-                    drawHeight = 220-160*int(cloud[1])/top
-                    if LRBool > 0:
-                        self.win.blit(FONT12.render(cloud[0]+cloud[1], 1, self.c.BLUE), (210,drawHeight))
-                        pygame.draw.line(self.win, self.c.BLUE, (262,drawHeight+7), (308,drawHeight+7))
-                    else:
-                        self.win.blit(FONT12.render(cloud[0]+cloud[1], 1, self.c.BLUE), (260,drawHeight))
-                        pygame.draw.line(self.win, self.c.BLUE, (210,drawHeight+7), (255,drawHeight+7))
-                    LRBool *= -1
+        self.__draw_clouds(data.clouds)
         pygame.display.flip()
 
     @draw_func
@@ -588,13 +601,12 @@ class METARScreen:
         self.win.fill(self.c.WHITE)
         numHead, numLine = 0, 0
         # Weather
-        wxList = self.metar.data.get('Other-List')
-        if wxList:
+        wxs = self.metar.data.other
+        if wxs:
             self.win.blit(FONT18.render('Other Weather', 1, self.c.BLACK), (8,getY(numHead,numLine)))
             numHead += 1
             offset = -75
-            for wx in wxList:
-                wx = avwx.translate.other_list(wx).strip() # Translate raw WX
+            for wx in avwx.translate.other_list(wxs).split(", "):
                 # Column overflow control
                 if len(wx) > 17:
                     if offset > 0: numLine += 1
@@ -609,8 +621,8 @@ class METARScreen:
             if offset > 0:
                 numLine += 1
         # Remarks
-        rmk = self.metar.data.get('Remarks')
-        if rmk != '':
+        rmk = self.metar.data.remarks
+        if rmk:
             self.win.blit(FONT18.render('Remarks', 1, self.c.BLACK), (8,getY(numHead,numLine)))
             numHead += 1
             # Line overflow control
@@ -631,12 +643,12 @@ class METARScreen:
         Run main data display and options touch button control
         """
         self.__main_draw_static()
-        self.__main_draw_dynamic(self.metar.data)
+        self.__main_draw_dynamic(self.metar.data, self.metar.units)
         self.buttons = [
             IconButton((40, 213), 24, self.draw_options_bar, SpChar.SETTINGS, 48, 'WHITE', 'GRAY')
         ]
-        wx = self.metar.data.get('Other-List')
-        rmk = self.metar.data.get('Remarks')
+        wx = self.metar.data.other
+        rmk = self.metar.data.remarks
         if wx or rmk:
             if wx and rmk:
                 text, color = 'WX/RMK', 'PURPLE'
