@@ -1,6 +1,6 @@
 """
 Michael duPont - michael@mdupont.com
-screen.py - Display ICAO METAR weather data with a Raspberry Pi and Adafruit 320x240 Touch PiTFT
+screen.py - Display ICAO METAR weather data with a Raspberry Pi and touchscreen
 """
 
 # pylint: disable=E1101
@@ -13,53 +13,58 @@ import time
 from copy import copy
 from os import path, putenv, system
 from typing import Callable
+
 # library
 import avwx
 import pygame
+
 # module
 import common
 import config as cfg
 from common import IDENT_CHARS, logger
+
 
 class SpChar(object):
     """
     Special Characters
     """
 
-    CANCEL = '\u2715'
-    CHECKMARK = '\u2713'
-    DEGREES = '\u00B0'
-    DOWN_TRIANGLE = '\u25bc'
-    INFO = '\u2139'
-    MOON = '\u263E'
-    RELOAD = '\u21ba'
-    SETTINGS = '\u2699'
-    SUN = '\u2600'
-    UP_TRIANGLE = '\u25b2'
+    CANCEL = "\u2715"
+    CHECKMARK = "\u2713"
+    DEGREES = "\u00B0"
+    DOWN_TRIANGLE = "\u25bc"
+    INFO = "\u2139"
+    MOON = "\u263E"
+    RELOAD = "\u21ba"
+    SETTINGS = "\u2699"
+    SUN = "\u2600"
+    UP_TRIANGLE = "\u25b2"
+
 
 class Color(object):
     """
     RGB color values
     """
 
-    WHITE = 255,255,255
-    BLACK = 0,0,0
-    RED = 255,0,0
-    GREEN = 0,255,0
-    BLUE = 0,0,255
-    PURPLE = 150,0,255
-    GRAY = 60,60,60
+    WHITE = 255, 255, 255
+    BLACK = 0, 0, 0
+    RED = 255, 0, 0
+    GREEN = 0, 255, 0
+    BLUE = 0, 0, 255
+    PURPLE = 150, 0, 255
+    GRAY = 60, 60, 60
 
     def __getitem__(self, key: str) -> (int, int, int):
         try:
             return getattr(self, key)
         except AttributeError:
-            raise KeyError(f'{key} is not a set color: {self.__slots__}')
+            raise KeyError(f"{key} is not a set color: {self.__slots__}")
+
 
 # Init pygame and fonts
 pygame.init()
 LOC = path.abspath(path.dirname(__file__))
-FONT_PATH = path.join(LOC, 'icons', 'DejaVuSans.ttf')
+FONT_PATH = path.join(LOC, "icons", "DejaVuSans.ttf")
 FONT12 = pygame.font.Font(FONT_PATH, 12)
 FONT16 = pygame.font.Font(FONT_PATH, 16)
 FONT18 = pygame.font.Font(FONT_PATH, 18)
@@ -68,19 +73,37 @@ FONT32 = pygame.font.Font(FONT_PATH, 32)
 FONT48 = pygame.font.Font(FONT_PATH, 48)
 
 fr_display = {
-    'VFR': (Color.GREEN, (263,5)),
-    'MVFR': (Color.BLUE, (241,5)),
-    'IFR': (Color.RED, (273,5)),
-    'LIFR': (Color.PURPLE, (258,5)),
-    'N/A': (Color.BLACK, (269,5))
+    "VFR": (Color.GREEN, (263, 5)),
+    "MVFR": (Color.BLUE, (241, 5)),
+    "IFR": (Color.RED, (273, 5)),
+    "LIFR": (Color.PURPLE, (258, 5)),
+    "N/A": (Color.BLACK, (269, 5)),
 }
+
+
+def midpoint(p1: (int, int), p2: (int, int)) -> (int, int):
+    """
+    Returns the midpoint between two points
+    """
+    return (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2
+
 
 def centered(rendered_text, around: (int, int)) -> (int, int):
     """
     Returns the top left point for rendered text at a center point
     """
     width, height = rendered_text.get_size()
-    return around[0] - width / 2, around[1] - height / 2 + 1
+    return around[0] - width / 2 + 1, around[1] - height / 2 + 1
+
+
+def radius_point(degree: int, center: (int, int), radius: int) -> (int, int):
+    """
+    Returns the degree point on the circumference of a circle
+    """
+    x = center[0] + radius * math.cos((degree - 90) * math.pi / 180)
+    y = center[1] + radius * math.sin((degree - 90) * math.pi / 180)
+    return x, y
+
 
 class Button(object):
     """
@@ -109,6 +132,7 @@ class Button(object):
         """
         raise NotImplementedError()
 
+
 class RectButton(Button):
     """
     Rectangular buttons can contain text
@@ -127,8 +151,15 @@ class RectButton(Button):
     # Box outline thickness
     thickness: int
 
-    def __init__(self, bounds: [int], action: Callable, text: str = None,
-                 fontsize: int = None, fontcolor: str = 'Black', thickness: int = None):
+    def __init__(
+        self,
+        bounds: [int],
+        action: Callable,
+        text: str = None,
+        fontsize: int = None,
+        fontcolor: str = "Black",
+        thickness: int = None,
+    ):
         self.x1, self.y1, self.width, self.height = bounds
         self.x2 = self.x1 + self.width
         self.y2 = self.y1 + self.height
@@ -162,6 +193,7 @@ class RectButton(Button):
         """
         return self.x1 < pos[0] < self.x2 and self.y1 < pos[1] < self.y2
 
+
 class RoundButton(Button):
     """
     Round buttons 
@@ -184,6 +216,7 @@ class RoundButton(Button):
         x, y = self.center
         return self.radius > math.hypot(x - pos[0], y - pos[1])
 
+
 class IconButton(RoundButton):
     """
     Round button which contain a letter or symbol
@@ -192,8 +225,16 @@ class IconButton(RoundButton):
     # Fill color
     fill: str
 
-    def __init__(self, center: (int, int), radius: int, action: Callable, icon: str = None,
-                 fontsize: int = None, fontcolor: str = None, fill: str = None):
+    def __init__(
+        self,
+        center: (int, int),
+        radius: int,
+        action: Callable,
+        icon: str = None,
+        fontsize: int = None,
+        fontcolor: str = None,
+        fill: str = None,
+    ):
         self.center = center
         self.radius = radius
         self.onclick = action
@@ -203,7 +244,7 @@ class IconButton(RoundButton):
         self.fill = fill
 
     def __repr__(self) -> str:
-        return f'<IconButton at {self.center} rad {self.radius}>'
+        return f"<IconButton at {self.center} rad {self.radius}>"
 
     def draw(self, win: pygame.Surface, color: Color):
         """
@@ -216,13 +257,14 @@ class IconButton(RoundButton):
             rendered = font.render(self.icon, 1, color[self.fontcolor])
             win.blit(rendered, centered(rendered, self.center))
 
+
 class ShutdownButton(RoundButton):
     """
     Round button with a drawn shutdown symbol
     """
 
-    fontcolor: str = 'WHITE'
-    fill: str = 'RED'
+    fontcolor: str = "WHITE"
+    fill: str = "RED"
 
     def draw(self, win: pygame.Surface, color: Color):
         """
@@ -234,13 +276,14 @@ class ShutdownButton(RoundButton):
         rect = ((self.center[0] - 2, self.center[1] - 10), (4, 20))
         pygame.draw.rect(win, color[self.fontcolor], rect)
 
+
 class SelectionButton(ShutdownButton):
     """
     Round button with icons resembling selection screen
     """
 
-    fontcolor: str = 'WHITE'
-    fill: str = 'GREEN'
+    fontcolor: str = "WHITE"
+    fill: str = "GREEN"
 
     def draw(self, win: pygame.Surface, color: Color):
         """
@@ -253,10 +296,12 @@ class SelectionButton(ShutdownButton):
             topleft[1] += int(self.radius * 0.5) * direction - 3
             win.blit(tri, topleft)
 
+
 def draw_func(func):
     """
     Decorator wraps drawing functions with common commands
     """
+
     def wrapper(screen):
         screen.on_main = False
         screen.buttons = []
@@ -265,7 +310,9 @@ def draw_func(func):
         pygame.display.flip()
         # This line is a hack to force the screen to redraw
         pygame.event.get()
+
     return wrapper
+
 
 class METARScreen:
     """
@@ -285,11 +332,11 @@ class METARScreen:
     on_main: bool = False
 
     def __init__(self, station: str, size: (int, int), inverted: bool):
-        logger.debug('Running init')
+        logger.debug("Running init")
         try:
             self.metar = avwx.Metar(station)
         except avwx.exceptions.BadStation:
-            self.metar = avwx.Metar('KJFK')
+            self.metar = avwx.Metar("KJFK")
         self.ident = common.station_to_ident(station)
         self.old_ident = copy(self.ident)
         self.width, self.height = size
@@ -303,7 +350,7 @@ class METARScreen:
             pygame.mouse.set_visible(False)
         self.reset_update_time()
         self.buttons = []
-        logger.debug('Finished running init')
+        logger.debug("Finished running init")
 
     @property
     def station(self) -> str:
@@ -317,18 +364,15 @@ class METARScreen:
         """
         Returns a new Screen from a saved session
         """
-        station = session.get('station', 'KJFK')
-        inverted = session.get('inverted', True)
+        station = session.get("station", "KJFK")
+        inverted = session.get("inverted", True)
         return cls(station, size, inverted)
 
     def export_session(self, save: bool = True):
         """
         Saves or returns a dictionary representing the session's state
         """
-        session = {
-            'station': self.station,
-            'inverted': self.inverted
-        }
+        session = {"station": self.station, "inverted": self.inverted}
         if save:
             common.save_session(session)
         return session
@@ -350,7 +394,7 @@ class METARScreen:
         except avwx.exceptions.InvalidRequest:
             self.error_station()
         except Exception as exc:
-            logger.error(f'An unknown error has occured: {exc}')
+            logger.error(f"An unknown error has occured: {exc}")
             self.error_unknown()
         else:
             logger.info(self.metar.raw)
@@ -364,7 +408,9 @@ class METARScreen:
         Update the current station from ident and display new main screen
         """
         try:
-            avwx.station.valid_station(self.station)
+            station = avwx.station.Station.from_icao(self.station)
+            if not station.sends_reports:
+                return self.error_reporting()
         except avwx.exceptions.BadStation:
             return self.error_station()
         self.draw_loading_screen()
@@ -376,7 +422,7 @@ class METARScreen:
         except avwx.exceptions.InvalidRequest:
             self.error_station()
         except Exception as exc:
-            logger.error(f'An unknown error has occured: {exc}')
+            logger.error(f"An unknown error has occured: {exc}")
             self.error_unknown()
         else:
             logger.info(new_metar.raw)
@@ -408,13 +454,35 @@ class METARScreen:
         self.win.fill(self.c.WHITE)
         # Draw Selection Grid
         self.buttons = [
-            IconButton((275,80), 25, self.new_station, SpChar.CHECKMARK, 48, 'WHITE', 'GREEN'),
-            IconButton((275,160), 25, self.cancel_station, SpChar.CANCEL, 48, 'WHITE', 'RED')
+            IconButton(
+                (275, 80), 25, self.new_station, SpChar.CHECKMARK, 48, "WHITE", "GREEN"
+            ),
+            IconButton(
+                (275, 160), 25, self.cancel_station, SpChar.CANCEL, 48, "WHITE", "RED"
+            ),
         ]
         for col in range(4):
             x = self.__selection_getx(col)
-            self.buttons.append(IconButton((x, 42), 25, self.__incr_ident(col, 1), SpChar.UP_TRIANGLE, 48, 'BLACK'))
-            self.buttons.append(IconButton((x, 192), 25, self.__incr_ident(col, 0), SpChar.DOWN_TRIANGLE, 48, 'BLACK'))
+            self.buttons.append(
+                IconButton(
+                    (x, 42),
+                    25,
+                    self.__incr_ident(col, 1),
+                    SpChar.UP_TRIANGLE,
+                    48,
+                    "BLACK",
+                )
+            )
+            self.buttons.append(
+                IconButton(
+                    (x, 192),
+                    25,
+                    self.__incr_ident(col, 0),
+                    SpChar.DOWN_TRIANGLE,
+                    48,
+                    "BLACK",
+                )
+            )
             rendered = FONT48.render(IDENT_CHARS[self.ident[col]], 1, self.c.BLACK)
             self.win.blit(rendered, centered(rendered, (x, 122)))
 
@@ -432,6 +500,7 @@ class METARScreen:
         pos: 0-3 column
         up: increment up
         """
+
         def update_func():
             # Update ident
             if down:
@@ -449,6 +518,7 @@ class METARScreen:
             pygame.draw.rect(self.win, self.c.WHITE, region)
             self.win.blit(rendered, centered(rendered, (x, 122)))
             pygame.display.update(region)
+
         return update_func
 
     @draw_func
@@ -459,47 +529,62 @@ class METARScreen:
         # Reset on_main because the main screen should always display on success
         self.on_main = True
         self.win.fill(self.c.WHITE)
-        self.win.blit(FONT32.render('Fetching weather', 1, self.c.BLACK), (25,70))
-        self.win.blit(FONT32.render('data for ' + self.station, 1, self.c.BLACK), (25,120))
+        self.win.blit(FONT32.render("Fetching weather", 1, self.c.BLACK), (25, 70))
+        self.win.blit(
+            FONT32.render("data for " + self.station, 1, self.c.BLACK), (25, 120)
+        )
 
-    def __main_draw_static(self):
+    def __draw_wind_compass(
+        self, data: avwx.structs.MetarData, center: [int], radius: int
+    ):
         """
-        Load Main static background elements
+        Draw the wind direction compass
         """
-        self.win.fill(self.c.WHITE)
-        # Cloud Axis
-        self.win.blit(FONT18.render('Clouds AGL', 1, self.c.BLACK), (205,35))
-        pygame.draw.lines(self.win, self.c.BLACK, False, ((200,60),(200,230),(310,230)), 3)
-        # Wind Compass
-        pygame.draw.circle(self.win, self.c.GRAY, (40,80), 35, 3)
-        pygame.display.flip()
+        wdir = data.wind_direction
+        speed = data.wind_speed
+        var = data.wind_variable_direction
+        pygame.draw.circle(self.win, self.c.GRAY, center, radius, 3)
+        if not speed.value:
+            text = FONT18.render("Calm", 1, self.c.BLACK)
+        elif wdir and wdir.repr == "VRB":
+            text = FONT18.render("VRB", 1, self.c.BLACK)
+        elif wdir:
+            text = FONT26.render(str(wdir.value), 1, self.c.BLACK)
+            rad_point = radius_point(wdir.value, center, radius)
+            pygame.draw.line(self.win, self.c.RED, center, rad_point, 2)
+            if var:
+                for point in var:
+                    rad_point = radius_point(point.value, center, radius)
+                    pygame.draw.line(self.win, self.c.BLUE, center, rad_point, 2)
+        else:
+            text = FONT48.render(SpChar.CANCEL, 1, self.c.RED)
+        self.win.blit(text, centered(text, center))
 
     def __draw_wind(self, data: avwx.structs.MetarData, unit: str):
         """
         Draw the dynamic wind elements
         """
-        wdir = data.wind_direction
-        speed = data.wind_speed
-        gust = data.wind_gust
-        var = data.wind_variable_direction
-        if not speed.value:
-            self.win.blit(FONT18.render('Calm', 1, self.c.BLACK), (17, 126))
-            return
-        self.win.blit(FONT18.render(f"{speed.value} {unit}", 1, self.c.BLACK), (17, 116))
-        if wdir.repr == 'VRB':
-            self.win.blit(FONT26.render('VRB', 1, self.c.BLACK), (15, 66))
-        elif wdir:
-            def rad(deg):
-                return (deg-90) * math.pi / 180
-            pygame.draw.line(self.win, self.c.RED, (40,80), (40+35*math.cos(rad(wdir.value)),80+35*math.sin(rad(wdir.value))), 2)
-            if data.wind_variable_direction:
-                pygame.draw.line(self.win, self.c.BLUE, (40,80), (40+35*math.cos(var[0].value),80+35*math.sin(var[0].value)), 2)
-                pygame.draw.line(self.win, self.c.BLUE, (40,80), (40+35*math.cos(var[1].value),80+35*math.sin(var[1].value)), 2)
-            self.win.blit(FONT26.render(str(wdir.value), 1, self.c.BLACK), (15, 66))
-        else:
-            self.win.blit(FONT48.render(SpChar.CANCEL, 1, self.c.RED), (20, 54))
+        speed, gust = data.wind_speed, data.wind_gust
+        self.__draw_wind_compass(data, (40, 80), 35)
+        if speed.value:
+            self.win.blit(
+                FONT18.render(f"{speed.value} {unit}", 1, self.c.BLACK), (17, 116)
+            )
         gust_text = f"G: {gust.value}" if gust else "No Gust"
         self.win.blit(FONT18.render(gust_text, 1, self.c.BLACK), (5, 137))
+
+    def __draw_temp_icon(self, temp: int, point: (int, int)):
+        """
+        Draw the temperature icon
+        """
+        therm_level = 0
+        if temp:
+            therm_level = temp // 12 + 2
+            if therm_level < 0:
+                therm_level = 0
+        add_i = "I" if self.inverted else ""
+        therm_icon = f"Therm{therm_level}{add_i}.png"
+        self.win.blit(pygame.image.load(path.join(LOC, "icons", therm_icon)), point)
 
     def __draw_temp_dew_humidity(self, data: avwx.structs.MetarData):
         """
@@ -507,58 +592,81 @@ class METARScreen:
         """
         temp = data.temperature
         dew = data.dewpoint
-        temp_text = 'TMP: --'
-        diff_text = 'STD: --'
-        dew_text = 'DEW: --'
-        therm_level = 0
+        temp_text = "TMP: --"
+        diff_text = "STD: --"
+        dew_text = "DEW: --"
         # Dewpoint
         if dew:
-            dew_text = f'DEW: {dew.value}{SpChar.DEGREES}'
+            dew_text = f"DEW: {dew.value}{SpChar.DEGREES}"
         self.win.blit(FONT18.render(dew_text, 1, self.c.BLACK), (105, 114))
         # Temperature
         if temp:
-            temp_text = f'TMP: {temp.value}{SpChar.DEGREES}'
-            therm_level = temp.value // 12 + 2
-            if therm_level < 0:
-                therm_level = 0
+            temp_text = f"TMP: {temp.value}{SpChar.DEGREES}"
             temp_diff = temp.value - 15
-            diff_sign = '-' if temp_diff < 0 else '+'
-            diff_text = f'STD: {diff_sign}{abs(temp_diff)}{SpChar.DEGREES}'
-        add_i = 'I' if self.inverted else ''
-        therm_icon = f'Therm{therm_level}{add_i}.png'
+            diff_sign = "-" if temp_diff < 0 else "+"
+            diff_text = f"STD: {diff_sign}{abs(temp_diff)}{SpChar.DEGREES}"
         self.win.blit(FONT18.render(temp_text, 1, self.c.BLACK), (110, 50))
         self.win.blit(FONT18.render(diff_text, 1, self.c.BLACK), (110, 82))
-        self.win.blit(pygame.image.load(path.join(LOC, 'icons', therm_icon)), (60, 50))
+        self.__draw_temp_icon(temp.value, (60, 50))
         # Humidity
-        hmd_text = 'HMD: --'
+        hmd_text = "HMD: --"
         if isinstance(temp.value, int) and isinstance(dew.value, int):
-            relHum = (6.11*10.0**(7.5*dew.value/(237.7+dew.value)))/(6.11*10.0**(7.5*temp.value/(237.7+temp.value)))*100
-            hmd_text = f'HMD: {int(relHum)}%'
-        self.win.blit(FONT18.render(hmd_text, 1, self.c.BLACK), (90,146))
+            relHum = (
+                (6.11 * 10.0 ** (7.5 * dew.value / (237.7 + dew.value)))
+                / (6.11 * 10.0 ** (7.5 * temp.value / (237.7 + temp.value)))
+                * 100
+            )
+            hmd_text = f"HMD: {int(relHum)}%"
+        self.win.blit(FONT18.render(hmd_text, 1, self.c.BLACK), (90, 146))
 
-    def __draw_clouds(self, clouds: [avwx.structs.Cloud]):
+    def __draw_cloud_graph(self, clouds: [avwx.structs.Cloud], tl: [int], br: [int]):
         """
         Draw cloud layers in chart
+
+        Scales everything based on top left and bottom right points
         """
+        tlx, tly = tl
+        brx, bry = br
+        header = FONT18.render("Clouds AGL", 1, self.c.BLACK)
+        header_height = header.get_size()[1]
+        header_point = midpoint(tl, (brx, tly + header_height))
+        self.win.blit(header, centered(header, header_point))
+        tly += header_height
+        pygame.draw.lines(
+            self.win, self.c.BLACK, False, ((tlx, tly), (tlx, bry), (brx, bry)), 3
+        )
         if not clouds:
-            self.win.blit(FONT32.render('CLR', 1, self.c.BLUE), (226,120))
+            text = FONT32.render("CLR", 1, self.c.BLUE)
+            self.win.blit(text, centered(text, midpoint((tlx, tly), (brx, bry))))
             return
         top = 80
         LRBool = 1
+        tlx += 5
+        brx -= 5
+        bry -= 10
         for cloud in clouds[::-1]:
             if cloud.base:
                 if cloud.base > top:
                     top = cloud.base
-                drawHeight = 220-160*cloud.base/top
+                drawHeight = bry - (bry - tly) * cloud.base / top
+                text = FONT12.render(cloud.repr, 1, self.c.BLUE)
+                width, height = text.get_size()
+                liney = drawHeight + height / 2
                 if LRBool > 0:
-                    self.win.blit(FONT12.render(cloud.repr, 1, self.c.BLUE), (210,drawHeight))
-                    pygame.draw.line(self.win, self.c.BLUE, (262,drawHeight+7), (308,drawHeight+7))
+                    self.win.blit(text, (tlx, drawHeight))
+                    pygame.draw.line(
+                        self.win, self.c.BLUE, (tlx + width + 2, liney), (brx, liney)
+                    )
                 else:
-                    self.win.blit(FONT12.render(cloud.repr, 1, self.c.BLUE), (260,drawHeight))
-                    pygame.draw.line(self.win, self.c.BLUE, (210,drawHeight+7), (255,drawHeight+7))
+                    self.win.blit(text, (brx - width, drawHeight))
+                    pygame.draw.line(
+                        self.win, self.c.BLUE, (tlx, liney), (brx - width - 2, liney)
+                    )
                 LRBool *= -1
 
-    def __main_draw_dynamic(self, data: avwx.structs.MetarData, units: avwx.structs.Units) -> bool:
+    def __main_draw_dynamic(
+        self, data: avwx.structs.MetarData, units: avwx.structs.Units
+    ) -> bool:
         """
         Load Main dynamic foreground elements
 
@@ -566,9 +674,9 @@ class METARScreen:
         """
         # Station and Time
         time_text = data.station + "  " + data.time.dt.strftime(r"%d-%H:%M")
-        self.win.blit(FONT26.render(time_text, 1, self.c.BLACK), (5,5))
+        self.win.blit(FONT26.render(time_text, 1, self.c.BLACK), (5, 5))
         # Current Flight Rules
-        fr = data.flight_rules or 'N/A'
+        fr = data.flight_rules or "N/A"
         fr_color, fr_loc = fr_display[fr]
         self.win.blit(FONT26.render(fr, 1, fr_color), fr_loc)
         # Wind
@@ -577,17 +685,17 @@ class METARScreen:
         self.__draw_temp_dew_humidity(data)
         # Altimeter
         altm = data.altimeter
-        altm_text = 'ALT: --'
+        altm_text = "ALT: --"
         if altm:
             altm_text = f"ALT: {altm.value}"
         self.win.blit(FONT18.render(altm_text, 1, self.c.BLACK), (90, 178))
         # Visibility
-        vis_text = 'VIS: --'
+        vis_text = "VIS: --"
         if data.visibility:
             vis_text = f"VIS: {data.visibility.value}{units.visibility}"
-        self.win.blit(FONT18.render(vis_text, 1, self.c.BLACK), (90,210))
+        self.win.blit(FONT18.render(vis_text, 1, self.c.BLACK), (90, 210))
         # Cloud Layers
-        self.__draw_clouds(data.clouds)
+        self.__draw_cloud_graph(data.clouds, (200, 35), (310, 230))
         pygame.display.flip()
 
     @draw_func
@@ -595,23 +703,32 @@ class METARScreen:
         """
         Display available Other Weather / Remarks and cancel button control
         """
+
         def getY(numHead: int, numLine: int) -> int:
             return 5 + 26 * numHead + 23 * numLine
+
         # Load
         self.win.fill(self.c.WHITE)
         numHead, numLine = 0, 0
         # Weather
         wxs = self.metar.data.other
         if wxs:
-            self.win.blit(FONT18.render('Other Weather', 1, self.c.BLACK), (8,getY(numHead,numLine)))
+            self.win.blit(
+                FONT18.render("Other Weather", 1, self.c.BLACK),
+                (8, getY(numHead, numLine)),
+            )
             numHead += 1
             offset = -75
             for wx in avwx.translate.other_list(wxs).split(", "):
                 # Column overflow control
                 if len(wx) > 17:
-                    if offset > 0: numLine += 1
+                    if offset > 0:
+                        numLine += 1
                     offset = -75
-                self.win.blit(FONT16.render(wx, 1, self.c.BLACK), (85+offset,getY(numHead,numLine)))
+                self.win.blit(
+                    FONT16.render(wx, 1, self.c.BLACK),
+                    (85 + offset, getY(numHead, numLine)),
+                )
                 if len(wx) > 17:
                     numLine += 1
                 else:
@@ -623,18 +740,27 @@ class METARScreen:
         # Remarks
         rmk = self.metar.data.remarks
         if rmk:
-            self.win.blit(FONT18.render('Remarks', 1, self.c.BLACK), (8,getY(numHead,numLine)))
+            self.win.blit(
+                FONT18.render("Remarks", 1, self.c.BLACK), (8, getY(numHead, numLine))
+            )
             numHead += 1
             # Line overflow control
             while len(rmk) > 28:
-                cutPoint = rmk[:28].rfind(' ')
-                self.win.blit(FONT16.render(rmk[:cutPoint], 1, self.c.BLACK), (10,getY(numHead,numLine)))
+                cutPoint = rmk[:28].rfind(" ")
+                self.win.blit(
+                    FONT16.render(rmk[:cutPoint], 1, self.c.BLACK),
+                    (10, getY(numHead, numLine)),
+                )
                 numLine += 1
-                rmk = rmk[cutPoint+1:]
-            self.win.blit(FONT16.render(rmk, 1, self.c.BLACK), (10,getY(numHead,numLine)))
+                rmk = rmk[cutPoint + 1 :]
+            self.win.blit(
+                FONT16.render(rmk, 1, self.c.BLACK), (10, getY(numHead, numLine))
+            )
             numLine += 1
         self.buttons = [
-            IconButton((40, 213), 24, self.draw_main, SpChar.CANCEL, 48, 'WHITE', 'GRAY')
+            IconButton(
+                (40, 213), 24, self.draw_main, SpChar.CANCEL, 48, "WHITE", "GRAY"
+            )
         ]
 
     @draw_func
@@ -642,21 +768,31 @@ class METARScreen:
         """
         Run main data display and options touch button control
         """
-        self.__main_draw_static()
+        self.win.fill(self.c.WHITE)
         self.__main_draw_dynamic(self.metar.data, self.metar.units)
         self.buttons = [
-            IconButton((40, 213), 24, self.draw_options_bar, SpChar.SETTINGS, 48, 'WHITE', 'GRAY')
+            IconButton(
+                (40, 213),
+                24,
+                self.draw_options_bar,
+                SpChar.SETTINGS,
+                48,
+                "WHITE",
+                "GRAY",
+            )
         ]
         wx = self.metar.data.other
         rmk = self.metar.data.remarks
         if wx or rmk:
             if wx and rmk:
-                text, color = 'WX/RMK', 'PURPLE'
+                text, color = "WX/RMK", "PURPLE"
             elif wx:
-                text, color = 'WX', 'RED'
+                text, color = "WX", "RED"
             elif rmk:
-                text, color = 'RMK', 'BLUE'
-            self.buttons.append(RectButton((3, 159, 80, 27), self.draw_rmk, text, 18, color, 2))
+                text, color = "RMK", "BLUE"
+            self.buttons.append(
+                RectButton((3, 159, 80, 27), self.draw_rmk, text, 18, color, 2)
+            )
         self.on_main = True
 
     def invert_wb(self, redraw: bool = True):
@@ -682,8 +818,10 @@ class METARScreen:
         else:
             self.win.blit(FONT32.render("Exit the program?", 1, self.c.BLACK), (18, 70))
         self.buttons = [
-            IconButton((105, 150), 25, quit, SpChar.CHECKMARK, 48, 'WHITE', 'GREEN'),
-            IconButton((215, 150), 25, self.draw_main, SpChar.CANCEL, 48, 'WHITE', 'RED')
+            IconButton((105, 150), 25, quit, SpChar.CHECKMARK, 48, "WHITE", "GREEN"),
+            IconButton(
+                (215, 150), 25, self.draw_main, SpChar.CANCEL, 48, "WHITE", "RED"
+            ),
         ]
 
     @draw_func
@@ -692,12 +830,17 @@ class METARScreen:
         Display info screen and cancel touch button control
         """
         self.win.fill(self.c.WHITE)
-        self.win.blit(FONT32.render('METAR-RasPi', 1, self.c.BLACK), (51,40))
-        self.win.blit(FONT18.render('Michael duPont', 1, self.c.BLACK), (85,95))
-        self.win.blit(FONT18.render('michael@mdupont.com', 1, self.c.BLACK), (50,120))
-        self.win.blit(FONT12.render('github.com/flyinactor91/METAR-RasPi', 1, self.c.BLACK), (40,147))
+        self.win.blit(FONT32.render("METAR-RasPi", 1, self.c.BLACK), (51, 40))
+        self.win.blit(FONT18.render("Michael duPont", 1, self.c.BLACK), (85, 95))
+        self.win.blit(FONT18.render("michael@mdupont.com", 1, self.c.BLACK), (50, 120))
+        self.win.blit(
+            FONT12.render("github.com/flyinactor91/METAR-RasPi", 1, self.c.BLACK),
+            (40, 147),
+        )
         self.buttons = [
-            IconButton((40, 213), 24, self.draw_main, SpChar.CANCEL, 48, 'WHITE', 'GRAY')
+            IconButton(
+                (40, 213), 24, self.draw_main, SpChar.CANCEL, 48, "WHITE", "GRAY"
+            )
         ]
 
     @draw_func
@@ -705,16 +848,26 @@ class METARScreen:
         """
         Draws options bar display
         """
-        #Clear Option background
+        # Clear Option background
         pygame.draw.rect(self.win, self.c.WHITE, ((0, 190), (85, 50)))
         pygame.draw.rect(self.win, self.c.WHITE, ((85, 180), (335, 60)))
         invchar = SpChar.SUN if self.inverted else SpChar.MOON
         self.buttons = [
-            IconButton((40, 213), 24, self.draw_main, SpChar.CANCEL, 48, 'WHITE', 'GRAY'),
+            IconButton(
+                (40, 213), 24, self.draw_main, SpChar.CANCEL, 48, "WHITE", "GRAY"
+            ),
             SelectionButton((100, 213), 24, self.draw_selection_screen),
             ShutdownButton((160, 213), 24, self.draw_quit_screen),
-            IconButton((220, 213), 24, self.invert_wb, invchar, 48, 'WHITE', 'BLACK'),
-            IconButton((280, 213), 24, self.draw_info_screen, SpChar.INFO, 48, 'WHITE', 'PURPLE')
+            IconButton((220, 213), 24, self.invert_wb, invchar, 48, "WHITE", "BLACK"),
+            IconButton(
+                (280, 213),
+                24,
+                self.draw_info_screen,
+                SpChar.INFO,
+                48,
+                "WHITE",
+                "PURPLE",
+            ),
         ]
 
     @draw_func
@@ -723,10 +876,40 @@ class METARScreen:
         Display invalid station message and sleep
         """
         self.win.fill(self.c.WHITE)
-        self.win.blit(FONT32.render(f"{self.station} is not", 1, self.c.BLACK), (25,70))
-        self.win.blit(FONT32.render("a valid station", 1, self.c.BLACK), (25,120))
+        self.win.blit(
+            FONT32.render(f"{self.station} is not", 1, self.c.BLACK), (25, 70)
+        )
+        self.win.blit(FONT32.render("a valid station", 1, self.c.BLACK), (25, 120))
         self.buttons = [
-            IconButton((40, 213), 24, self.draw_selection_screen, SpChar.CANCEL, 48, 'WHITE', 'GRAY')
+            IconButton(
+                (40, 213),
+                24,
+                self.draw_selection_screen,
+                SpChar.CANCEL,
+                48,
+                "WHITE",
+                "GRAY",
+            )
+        ]
+
+    @draw_func
+    def error_reporting(self):
+        """
+        Display invalid station message and sleep
+        """
+        self.win.fill(self.c.WHITE)
+        self.win.blit(FONT32.render(f"{self.station} does", 1, self.c.BLACK), (25, 70))
+        self.win.blit(FONT32.render("not send METARs", 1, self.c.BLACK), (25, 120))
+        self.buttons = [
+            IconButton(
+                (40, 213),
+                24,
+                self.draw_selection_screen,
+                SpChar.CANCEL,
+                48,
+                "WHITE",
+                "GRAY",
+            )
         ]
 
     @draw_func
@@ -735,10 +918,18 @@ class METARScreen:
         Display invalid station message and sleep
         """
         self.win.fill(self.c.WHITE)
-        self.win.blit(FONT32.render(f"There was an", 1, self.c.BLACK), (25,70))
-        self.win.blit(FONT32.render("unknown errer", 1, self.c.BLACK), (25,120))
+        self.win.blit(FONT32.render(f"There was an", 1, self.c.BLACK), (25, 70))
+        self.win.blit(FONT32.render("unknown errer", 1, self.c.BLACK), (25, 120))
         self.buttons = [
-            IconButton((40, 213), 24, self.draw_selection_screen, SpChar.CANCEL, 48, 'WHITE', 'GRAY')
+            IconButton(
+                (40, 213),
+                24,
+                self.draw_selection_screen,
+                SpChar.CANCEL,
+                48,
+                "WHITE",
+                "GRAY",
+            )
         ]
 
     @draw_func
@@ -746,22 +937,28 @@ class METARScreen:
         """
         Display timeout message and sleep
         """
-        logger.warning('Connection Timeout')
+        logger.warning("Connection Timeout")
         self.win.fill(self.c.WHITE)
-        self.win.blit(FONT32.render("Could not fetch", 1, self.c.BLACK), (25,70))
-        self.win.blit(FONT32.render("data from source", 1, self.c.BLACK), (25,120))
+        self.win.blit(FONT32.render("Could not fetch", 1, self.c.BLACK), (25, 70))
+        self.win.blit(FONT32.render("data from source", 1, self.c.BLACK), (25, 120))
         self.buttons = [
-            IconButton((40, 213), 24, self.draw_main, SpChar.CANCEL, 48, 'WHITE', 'GRAY'),
-            IconButton((100, 213), 24, self.refresh_data, SpChar.RELOAD, 48, 'WHITE', 'GRAY')
+            IconButton(
+                (40, 213), 24, self.draw_main, SpChar.CANCEL, 48, "WHITE", "GRAY"
+            ),
+            IconButton(
+                (100, 213), 24, self.refresh_data, SpChar.RELOAD, 48, "WHITE", "GRAY"
+            ),
         ]
         self.reset_update_time(cfg.timeout_interval)
         self.on_main = True
 
+
 def quit():
-    logger.debug('Quit')
+    logger.debug("Quit")
     if cfg.shutdown_on_exit:
-        system('shutdown -h now')
+        system("shutdown -h now")
     sys.exit()
+
 
 async def update_loop(screen: METARScreen):
     """
@@ -770,9 +967,10 @@ async def update_loop(screen: METARScreen):
     while True:
         # logger.debug(f'{int(time.time())} {screen.update_time}')
         if time.time() >= screen.update_time:
-            logger.debug('Auto update')
+            logger.debug("Auto update")
             screen.refresh_data()
         await asyncio.sleep(10)
+
 
 async def input_loop(screen: METARScreen):
     """
@@ -788,26 +986,25 @@ async def input_loop(screen: METARScreen):
                         break
         await asyncio.sleep(0.01)
 
+
 def main():
     """
     Program main handles METAR data handling and user interaction flow
     """
-    logger.debug('Booting')
+    logger.debug("Booting")
     screen = METARScreen.from_session(common.load_session(), cfg.size)
     screen.draw_loading_screen()
     screen.refresh_data(force_main=True)
     loop = asyncio.get_event_loop()
-    coros = [
-        update_loop(screen),
-        input_loop(screen)
-    ]
-    logger.debug('Setup complete')
+    coros = [update_loop(screen), input_loop(screen)]
+    logger.debug("Setup complete")
     loop.run_until_complete(asyncio.wait(coros, return_when=asyncio.FIRST_COMPLETED))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if cfg.on_pi:
-        putenv('SDL_FBDEV', '/dev/fb1')
-        putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
-        putenv('SDL_MOUSEDRV', 'TSLIB')
-        putenv('SDL_VIDEODRIVER', 'fbcon')
+        putenv("SDL_FBDEV", "/dev/fb1")
+        putenv("SDL_MOUSEDEV", "/dev/input/touchscreen")
+        putenv("SDL_MOUSEDRV", "TSLIB")
+        putenv("SDL_VIDEODRIVER", "fbcon")
     main()
