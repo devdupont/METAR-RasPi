@@ -1,0 +1,58 @@
+{
+    "size": [320, 240],
+    "large display": false,
+    "util": [40, 213],
+    "main": {
+        "title": [5, 5],
+        "flight_rules": [263, 5],
+        "wind_compass": [40, 80],
+        "wind_compass_radius": 35,
+        "wind_speed": [40, 126],
+        "wind_gust": [40, 147],
+        "temp_icon": [60, 50],
+        "temp": [110, 50],
+        "temp_stdv": [110, 82],
+        "dew": [105, 114],
+        "humid": [90, 146],
+        "altim": [90, 178],
+        "vis": [90, 210],
+        "cloud_graph": [[200, 35], [310, 230]],
+        "wxrmk": [3, 159, 80, 27],
+        "util_spacing": 60,
+        "util_back": [187, 53]
+    },
+    "wxrmk": {
+        "header": 8,
+        "header_space": 26,
+        "line_space": 23,
+        "col1": 10,
+        "col2": 160,
+        "wx_length": 17,
+        "rmk_length": 28
+    },
+    "select": {
+        "row_up": 42,
+        "row_char": 122,
+        "row_down": 192,
+        "col_offset": 43,
+        "col_spacing": 55,
+        "yes": [275, 80],
+        "no": [275, 160]
+    },
+    "info": {
+        "title": [51, 40],
+        "name": [85, 95],
+        "email": [50, 120],
+        "url": [40, 147]
+    },
+    "quit": {
+        "text_y": 70,
+        "yes": [105, 150],
+        "no": [215, 150]
+    },
+    "error": {
+        "line1": [25, 60],
+        "line2": [25, 110],
+        "refresh": [100, 213]
+    }
+}
