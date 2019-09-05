@@ -563,7 +563,7 @@ class METARScreen:
         elif wdir and wdir.repr == "VRB":
             text = FONT18.render("VRB", 1, self.c.BLACK)
         elif wdir:
-            text = FONT26.render(str(wdir.value), 1, self.c.BLACK)
+            text = FONT26.render(str(wdir.value).zfill(3), 1, self.c.BLACK)
             rad_point = radius_point(wdir.value, center, radius)
             pygame.draw.line(self.win, self.c.RED, center, rad_point, 2)
             if var:
