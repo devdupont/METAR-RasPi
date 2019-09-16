@@ -48,8 +48,4 @@ include_remarks = False
 fullscreen = False
 
 # Hide the mouse on a touchscreen
-# NOTE: This is known to disable all touch input on some screens
 hide_mouse = False
-
-# Set to False if not running on a RasPi. Changes env settings
-on_pi = False

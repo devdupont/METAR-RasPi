@@ -106,6 +106,15 @@ def radius_point(degree: int, center: (int, int), radius: int) -> (int, int):
     return x, y
 
 
+def hide_mouse():
+    """
+    This makes the mouse transparent
+    """
+    pygame.mouse.set_cursor(
+        (8, 8), (0, 0), (0, 0, 0, 0, 0, 0, 0, 0), (0, 0, 0, 0, 0, 0, 0, 0)
+    )
+
+
 class Button(object):
     """
     Base button class
@@ -351,7 +360,7 @@ class METARScreen:
         if inverted:
             self.c.BLACK, self.c.WHITE = self.c.WHITE, self.c.BLACK
         if cfg.hide_mouse:
-            pygame.mouse.set_visible(False)
+            hide_mouse()
         self.reset_update_time()
         self.buttons = []
         self.layout = cfg.layout
@@ -1006,6 +1015,8 @@ async def input_loop(screen: METARScreen):
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
+                if cfg.hide_mouse:
+                    hide_mouse()
                 for button in screen.buttons:
                     if button.is_clicked(pos):
                         button.onclick()
@@ -1028,9 +1039,4 @@ def main():
 
 
 if __name__ == "__main__":
-    if cfg.on_pi:
-        putenv("SDL_FBDEV", "/dev/fb1")
-        putenv("SDL_MOUSEDEV", "/dev/input/touchscreen")
-        putenv("SDL_MOUSEDRV", "TSLIB")
-        putenv("SDL_VIDEODRIVER", "fbcon")
     main()
