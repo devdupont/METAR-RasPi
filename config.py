@@ -24,7 +24,7 @@ timeout_interval = 60
 # Set log level - CRITICAL, ERROR, WARNING, INFO, DEBUG
 log_level = logging.DEBUG
 
-# Send METAR Pi logs to a file
+# Send METAR Pi logs to a file. Ex: "output.log"
 log_file = None
 
 # Set to True to shutdown the Pi when exiting the program

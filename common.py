@@ -51,11 +51,12 @@ IDENT_CHARS = [
     "9",
 ]
 
-if cfg.log_file is None:
-    logger = logging.getLogger()
-else:
-    logger = logging.FileHandler(cfg.log_file)
+logger = logging.getLogger()
 logger.setLevel(cfg.log_level)
+if cfg.log_file is not None:
+    log_file = logging.FileHandler(cfg.log_file)
+    log_file.setLevel(cfg.log_level)
+    logger.addHandler(log_file)
 
 
 def ident_to_station(idents: [int]) -> str:

@@ -9,7 +9,7 @@ This project requires Python 3.6+ to run the `avwx` library. Run these commands 
 ```bash
 python -V
 python3 -V
-python3.6 -V
+python3.7 -V
 ```
 
 If you're running this on a Raspberry Pi that does not yet have 3.6+ on it, you can find [instructions here](https://gist.github.com/dschep/24aa61672a2092246eaca2824400d37f).
@@ -29,13 +29,28 @@ However, the program can be run on any screen or computer in its own window for 
 Install the dependancies using the Python version from above.
 
 ```bash
-python3.6 -m pip install avwx-engine~=0.11.6 pygame~=1.9.3
+pip3 install -r requirements.txt
 ```
 
 Then just run the screen file to boot the display.
 
 ```bash
-python3.6 screen.py
+python3 screen.py
 ```
 
 On the main display, pressing the RMK, WX, WX/RMK displays more METAR information. Pressing the gear displays more options.
+
+### Startup
+
+If you want the METAR screen to run on boot, we can use autostart by creating this file:
+
+`/home/pi/.config/autostart/metar.desktop`
+
+```text
+[Desktop]
+Type=Application
+Name=Metar
+Exec=/usr/bin/python3 /home/pi/METAR-RasPi/screen.py
+```
+
+Make sure the Exec line uses your version of Python and points to your project folder.
