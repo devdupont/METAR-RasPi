@@ -7,13 +7,48 @@ static.py - Shared global methods
 import json
 import logging
 from os import path
+from pathlib import Path
+
 # module
 import config as cfg
 
 IDENT_CHARS = [
-    'A','B','C','D','E','F','G','H','I','J','K','L','M',
-    'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-    '0','1','2','3','4','5','6','7','8','9'
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
 ]
 
 if cfg.log_file is None:
@@ -22,11 +57,13 @@ else:
     logger = logging.FileHandler(cfg.log_file)
 logger.setLevel(cfg.log_level)
 
+
 def ident_to_station(idents: [int]) -> str:
     """
     Converts 'ident' ints to station string
     """
-    return ''.join([IDENT_CHARS[num] for num in idents])
+    return "".join([IDENT_CHARS[num] for num in idents])
+
 
 def station_to_ident(station: str) -> [int]:
     """
@@ -40,19 +77,22 @@ def station_to_ident(station: str) -> [int]:
             ret.append(ord(char) - 22)
     return ret
 
-SESSION = path.join(path.abspath(path.dirname(__file__)), 'session.json')
+
+SESSION_PATH = cfg.LOC / "session.json"
+
 
 def load_session() -> dict:
     """
     Returns available session dict
     """
     try:
-        return json.load(open(SESSION))
+        return json.load(SESSION_PATH.open())
     except FileNotFoundError:
         return {}
+
 
 def save_session(data: dict):
     """
     Save the session dict to disk
     """
-    json.dump(data, open(SESSION, 'w'))
+    json.dump(data, SESSION_PATH.open("w"))

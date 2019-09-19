@@ -11,7 +11,7 @@ import math
 import sys
 import time
 from copy import copy
-from os import path, putenv, system
+from os import system
 from typing import Callable
 
 # library
@@ -24,7 +24,7 @@ import config as cfg
 from common import IDENT_CHARS, logger
 
 
-class SpChar(object):
+class SpChar:
     """
     Special Characters
     """
@@ -41,7 +41,7 @@ class SpChar(object):
     UP_TRIANGLE = "\u25b2"
 
 
-class Color(object):
+class Color:
     """
     RGB color values
     """
@@ -63,8 +63,9 @@ class Color(object):
 
 # Init pygame and fonts
 pygame.init()
-LOC = path.abspath(path.dirname(__file__))
-FONT_PATH = path.join(LOC, "icons", "DejaVuSans.ttf")
+ICON_PATH = cfg.LOC / "icons"
+FONT_PATH = str(ICON_PATH / "DejaVuSans.ttf")
+
 FONT12 = pygame.font.Font(FONT_PATH, 12)
 FONT16 = pygame.font.Font(FONT_PATH, 16)
 FONT18 = pygame.font.Font(FONT_PATH, 18)
@@ -115,7 +116,7 @@ def hide_mouse():
     )
 
 
-class Button(object):
+class Button:
     """
     Base button class
 
@@ -206,7 +207,7 @@ class RectButton(Button):
 
 class RoundButton(Button):
     """
-    Round buttons 
+    Round buttons
     """
 
     # Center pixel and radius
@@ -518,7 +519,7 @@ class METARScreen:
     def __incr_ident(self, pos: int, down: bool) -> Callable:
         """
         Returns a function to update and replace ident char on display
-        
+
         pos: 0-3 column
         down: increment/decrement counter
         """
@@ -610,7 +611,7 @@ class METARScreen:
                 therm_level = 0
         add_i = "I" if self.inverted else ""
         therm_icon = f"Therm{therm_level}{add_i}.png"
-        self.win.blit(pygame.image.load(path.join(LOC, "icons", therm_icon)), point)
+        self.win.blit(pygame.image.load(str(ICON_PATH / therm_icon)), point)
 
     def __draw_temp_dew_humidity(self, data: avwx.structs.MetarData):
         """

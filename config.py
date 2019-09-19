@@ -5,12 +5,14 @@ config.py - Shared METAR display settings
 
 import json
 import logging
+from os import path
 from pathlib import Path
 
 # Size of the screen. Loads the layout from "./screen_settings"
 layout = "320x240"
 
-layout = Path("screen_settings", layout + ".json")
+LOC = Path(path.abspath(path.dirname(__file__)))
+layout = LOC / "screen_settings" / f"{layout}.json"
 layout = json.load(layout.open())
 
 # Seconds between server pings
