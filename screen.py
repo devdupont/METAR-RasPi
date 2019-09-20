@@ -398,22 +398,27 @@ class METARScreen:
         """
         self.update_time = time.time() + (interval or cfg.update_interval)
 
-    def refresh_data(self, force_main: bool = False):
+    def refresh_data(self, force_main: bool = False, ignore_updated: bool = False):
         """
         Refresh existing station
         """
+        logger.info("Calling refresh update")
         try:
             updated = self.metar.update()
-        except TimeoutError:
+        except ConnectionError:
+            self.wait_for_network()
+        except (TimeoutError, avwx.exceptions.SourceError):
             self.error_connection()
         except avwx.exceptions.InvalidRequest:
             self.error_station()
         except Exception as exc:
-            logger.error(f"An unknown error has occured: {exc}")
+            logger.exception(f"An unknown error has occured: {exc}")
             self.error_unknown()
         else:
             logger.info(self.metar.raw)
             self.reset_update_time()
+            if ignore_updated:
+                updated = True
             if updated and (self.on_main or force_main):
                 self.draw_main()
             elif force_main and not updated:
@@ -424,6 +429,7 @@ class METARScreen:
         """
         Update the current station from ident and display new main screen
         """
+        logger.info("Calling new update")
         try:
             station = avwx.station.Station.from_icao(self.station)
             if not station.sends_reports:
@@ -440,7 +446,7 @@ class METARScreen:
         except avwx.exceptions.InvalidRequest:
             self.error_station()
         except Exception as exc:
-            logger.error(f"An unknown error has occured: {exc}")
+            logger.exception(f"An unknown error has occured: {exc}")
             self.error_unknown()
         else:
             logger.info(new_metar.raw)
@@ -859,7 +865,6 @@ class METARScreen:
         self.win.fill(self.c.WHITE)
         if cfg.shutdown_on_exit:
             text = "Shutdown the Pi?"
-            # self.win.blit(FONT32.render("Shutdown the Pi?", 1, self.c.BLACK), (22, 70))
         else:
             text = "Exit the program?"
         text = FONT32.render(text, 1, self.c.BLACK)
@@ -926,6 +931,25 @@ class METARScreen:
                 "PURPLE",
             ),
         ]
+
+    @draw_func
+    def draw_no_network(self):
+        """
+        Display no network connection
+        """
+        self.win.fill(self.c.WHITE)
+        self.win.blit(FONT32.render("Waiting for a", 1, self.c.BLACK), (25, 70))
+        self.win.blit(FONT32.render("network conn", 1, self.c.BLACK), (25, 120))
+
+    def wait_for_network(self):
+        """
+        Sleep while waiting for a missing network 
+        """
+        logger.info("No network")
+        self.draw_no_network()
+        time.sleep(5)
+        self.on_main = True
+        self.refresh_data(ignore_updated=True)
 
     def __error_msg(self, line1: str, line2: str, btnf: Callable):
         """
