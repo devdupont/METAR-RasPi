@@ -6,7 +6,7 @@ screen.py - Display ICAO METAR weather data with a Raspberry Pi and touchscreen
 # pylint: disable=E1101
 
 # stdlib
-import asyncio
+import asyncio as aio
 import math
 import sys
 import time
@@ -398,15 +398,17 @@ class METARScreen:
         """
         self.update_time = time.time() + (interval or cfg.update_interval)
 
-    def refresh_data(self, force_main: bool = False, ignore_updated: bool = False):
+    async def refresh_data(
+        self, force_main: bool = False, ignore_updated: bool = False
+    ):
         """
         Refresh existing station
         """
         logger.info("Calling refresh update")
         try:
-            updated = self.metar.update()
+            updated = await self.metar.async_update()
         except ConnectionError:
-            self.wait_for_network()
+            await self.wait_for_network()
         except (TimeoutError, avwx.exceptions.SourceError):
             self.error_connection()
         except avwx.exceptions.InvalidRequest:
@@ -424,18 +426,11 @@ class METARScreen:
             elif force_main and not updated:
                 self.error_no_data()
 
-    @draw_func
     def new_station(self):
         """
         Update the current station from ident and display new main screen
         """
         logger.info("Calling new update")
-        try:
-            station = avwx.station.Station.from_icao(self.station)
-            if not station.sends_reports:
-                return self.error_reporting()
-        except avwx.exceptions.BadStation:
-            return self.error_station()
         self.draw_loading_screen()
         new_metar = avwx.Metar(self.station)
         try:
@@ -455,6 +450,18 @@ class METARScreen:
             self.reset_update_time()
             self.export_session()
             self.draw_main()
+
+    def verify_station(self):
+        """
+        Verifies the station value before calling new data
+        """
+        try:
+            station = avwx.station.Station.from_icao(self.station)
+            if not station.sends_reports:
+                return self.error_reporting()
+        except avwx.exceptions.BadStation:
+            return self.error_station()
+        return self.new_station()
 
     def cancel_station(self):
         """
@@ -482,7 +489,7 @@ class METARScreen:
         yes, no = self.layout["select"]["yes"], self.layout["select"]["no"]
         self.buttons = [
             IconButton(
-                yes, 25, self.new_station, SpChar.CHECKMARK, 48, "WHITE", "GREEN"
+                yes, 25, self.verify_station, SpChar.CHECKMARK, 48, "WHITE", "GREEN"
             ),
             IconButton(no, 25, self.cancel_station, SpChar.CANCEL, 48, "WHITE", "RED"),
         ]
@@ -940,16 +947,17 @@ class METARScreen:
         self.win.fill(self.c.WHITE)
         self.win.blit(FONT32.render("Waiting for a", 1, self.c.BLACK), (25, 70))
         self.win.blit(FONT32.render("network conn", 1, self.c.BLACK), (25, 120))
+        self.buttons = [ShutdownButton(self.layout["util"], 24, quit)]
 
-    def wait_for_network(self):
+    async def wait_for_network(self):
         """
         Sleep while waiting for a missing network 
         """
         logger.info("No network")
         self.draw_no_network()
-        time.sleep(5)
+        await aio.sleep(5)
         self.on_main = True
-        self.refresh_data(ignore_updated=True)
+        await self.refresh_data(ignore_updated=True)
 
     def __error_msg(self, line1: str, line2: str, btnf: Callable):
         """
@@ -1028,8 +1036,8 @@ async def update_loop(screen: METARScreen):
         # logger.debug(f'{int(time.time())} {screen.update_time}')
         if time.time() >= screen.update_time:
             logger.debug("Auto update")
-            screen.refresh_data()
-        await asyncio.sleep(10)
+            await screen.refresh_data()
+        await aio.sleep(10)
 
 
 async def input_loop(screen: METARScreen):
@@ -1046,7 +1054,15 @@ async def input_loop(screen: METARScreen):
                     if button.is_clicked(pos):
                         button.onclick()
                         break
-        await asyncio.sleep(0.01)
+        await aio.sleep(0.01)
+
+
+def run_with_touch_input(screen: METARScreen, coro: Callable):
+    """
+    Runs an async screen function with touch input enabled
+    """
+    coros = [coro, input_loop(screen)]
+    aio.run(aio.wait(coros, return_when=aio.FIRST_COMPLETED))
 
 
 def main():
@@ -1056,11 +1072,9 @@ def main():
     logger.debug("Booting")
     screen = METARScreen.from_session(common.load_session(), cfg.layout["size"])
     screen.draw_loading_screen()
-    screen.refresh_data(force_main=True)
-    loop = asyncio.get_event_loop()
-    coros = [update_loop(screen), input_loop(screen)]
+    run_with_touch_input(screen, screen.refresh_data(force_main=True))
     logger.debug("Setup complete")
-    loop.run_until_complete(asyncio.wait(coros, return_when=asyncio.FIRST_COMPLETED))
+    run_with_touch_input(screen, update_loop(screen))
 
 
 if __name__ == "__main__":
