@@ -1,6 +1,18 @@
 {
     "size": [320, 240],
     "large display": false,
+    "fonts": {
+        "s1": 12,
+        "s2": 16,
+        "s3": 18,
+        "m1": 26,
+        "m2": 32,
+        "l1": 48
+    },
+    "button": {
+        "radius": 25,
+        "outline": 2
+    },
     "util": [40, 213],
     "main": {
         "title": [5, 5],
@@ -19,9 +31,10 @@
         "cloud_graph": [[200, 35], [310, 230]],
         "wxrmk": [3, 159, 80, 27],
         "util_spacing": 60,
-        "util_back": [187, 53]
+        "util_back": [187, 320]
     },
     "wxrmk": {
+        "padding": 5,
         "header": 8,
         "header_space": 26,
         "line_space": 23,
@@ -40,10 +53,10 @@
         "no": [275, 160]
     },
     "info": {
-        "title": [51, 40],
-        "name": [85, 95],
-        "email": [50, 120],
-        "url": [40, 147]
+        "title_y": 40,
+        "name_y": 95,
+        "email_y": 120,
+        "url_y": 147
     },
     "quit": {
         "text_y": 70,
