@@ -73,14 +73,10 @@ FONT_S3 = pygame.font.Font(FONT_PATH, cfg.layout["fonts"]["s3"])
 FONT_M1 = pygame.font.Font(FONT_PATH, cfg.layout["fonts"]["m1"])
 FONT_M2 = pygame.font.Font(FONT_PATH, cfg.layout["fonts"]["m2"])
 FONT_L1 = pygame.font.Font(FONT_PATH, cfg.layout["fonts"]["l1"])
-
-fr_display = {
-    "VFR": (Color.GREEN, 0),
-    "MVFR": (Color.BLUE, -22),
-    "IFR": (Color.RED, 10),
-    "LIFR": (Color.PURPLE, -5),
-    "N/A": (Color.BLACK, -6),
-}
+try:
+    FONT_L2 = pygame.font.Font(FONT_PATH, cfg.layout["fonts"]["l2"])
+except KeyError:
+    pass
 
 
 def midpoint(p1: (int, int), p2: (int, int)) -> (int, int):
@@ -240,25 +236,35 @@ class IconButton(RoundButton):
     """
 
     # Fill color
-    fill: str
+    fill: str = "WHITE"
+    fontcolor: str = "BLACK"
+    fontsize: int = cfg.layout["fonts"]["l1"]
+    radius: int = cfg.layout["button"]["radius"]
 
     def __init__(
         self,
-        center: (int, int),
-        action: Callable,
+        center: (int, int) = None,
+        action: Callable = None,
         icon: str = None,
-        fontcolor: str = "BLACK",
+        fontcolor: str = None,
         fill: str = None,
-        radius: int = cfg.layout["button"]["radius"],
-        fontsize: int = cfg.layout["fonts"]["l1"],
+        radius: int = None,
+        fontsize: int = None,
     ):
-        self.center = center
-        self.radius = radius
-        self.onclick = action
-        self.icon = icon
-        self.fontsize = fontsize
-        self.fontcolor = fontcolor
-        self.fill = fill
+        if center:
+            self.center = center
+        if radius:
+            self.radius = radius
+        if action:
+            self.onclick = action
+        if icon:
+            self.icon = icon
+        if fontsize:
+            self.fontsize = fontsize
+        if fontcolor:
+            self.fontcolor = fontcolor
+        if fill:
+            self.fill = fill
 
     def __repr__(self) -> str:
         return f"<IconButton at {self.center} rad {self.radius}>"
@@ -307,11 +313,20 @@ class SelectionButton(RoundButton):
         Draw the button on the window with the current color palette
         """
         pygame.draw.circle(win, color[self.fill], self.center, self.radius)
+        font = FONT_S3 if cfg.layout["large-display"] else FONT_M1
         for char, direction in ((SpChar.UP_TRIANGLE, -1), (SpChar.DOWN_TRIANGLE, 1)):
-            tri = FONT_M1.render(char, 1, color[self.fontcolor])
+            tri = font.render(char, 1, color[self.fontcolor])
             topleft = list(centered(tri, self.center))
             topleft[1] += int(self.radius * 0.5) * direction - 3
             win.blit(tri, topleft)
+
+
+class CancelButton(IconButton):
+
+    center: (int, int) = cfg.layout["util"]
+    icon: str = SpChar.CANCEL
+    fontcolor: str = "WHITE"
+    fill: str = "GRAY"
 
 
 def draw_func(func):
@@ -346,6 +361,7 @@ class METARScreen:
     update_time: float
     buttons: [Button]
     layout: dict
+    is_large: bool
 
     on_main: bool = False
 
@@ -371,6 +387,7 @@ class METARScreen:
         self.reset_update_time()
         self.buttons = []
         self.layout = cfg.layout
+        self.is_large = self.layout["large-display"]
         logger.debug("Finished running init")
 
     @property
@@ -495,11 +512,11 @@ class METARScreen:
         yes, no = self.layout["select"]["yes"], self.layout["select"]["no"]
         self.buttons = [
             IconButton(yes, self.verify_station, SpChar.CHECKMARK, "WHITE", "GREEN"),
-            IconButton(no, self.cancel_station, SpChar.CANCEL, "WHITE", "RED"),
+            CancelButton(no, self.cancel_station, fill="RED"),
         ]
-        upy = self.layout["select"]["row_up"]
-        chary = self.layout["select"]["row_char"]
-        downy = self.layout["select"]["row_down"]
+        upy = self.layout["select"]["row-up"]
+        chary = self.layout["select"]["row-char"]
+        downy = self.layout["select"]["row-down"]
         for col in range(4):
             x = self.__selection_getx(col)
             self.buttons.append(
@@ -515,8 +532,8 @@ class METARScreen:
         """
         Returns the top left x pixel for a desired column
         """
-        offset = self.layout["select"]["col_offset"]
-        spacing = self.layout["select"]["col_spacing"]
+        offset = self.layout["select"]["col-offset"]
+        spacing = self.layout["select"]["col-spacing"]
         return offset + col * spacing
 
     def __incr_ident(self, pos: int, down: bool) -> Callable:
@@ -540,8 +557,8 @@ class METARScreen:
             # Update display
             rendered = FONT_L1.render(IDENT_CHARS[self.ident[pos]], 1, self.c.BLACK)
             x = self.__selection_getx(pos)
-            chary = self.layout["select"]["row_char"]
-            spacing = self.layout["select"]["col_spacing"]
+            chary = self.layout["select"]["row-char"]
+            spacing = self.layout["select"]["col-spacing"]
             region = (x - spacing / 2, chary - spacing / 2, spacing, spacing)
             pygame.draw.rect(self.win, self.c.WHITE, region)
             self.win.blit(rendered, centered(rendered, (x, chary)))
@@ -569,14 +586,15 @@ class METARScreen:
         Draw the clock components
         """
         now = datetime.utcnow().strftime(r"%H:%M")
-        clock_text = FONT_L1.render(now, 1, self.c.BLACK)
+        clock_font = globals().get("FONT_L2") or FONT_L1
+        clock_text = clock_font.render(now, 1, self.c.BLACK)
         x, y = self.layout["main"]["clock"]
         w, h = clock_text.get_size()
-        pygame.draw.rect(self.win, self.c.WHITE, ((x, y), (x + w, y + h)))
-        point = self.layout["main"]["clock"]
-        self.win.blit(clock_text, point)
-        point = self.layout["main"]["clock_label"]
-        self.win.blit(FONT_S3.render("UTC", 1, self.c.BLACK), point)
+        pygame.draw.rect(self.win, self.c.WHITE, ((x, y), (x + w, (y + h) * 0.9)))
+        self.win.blit(clock_text, (x, y))
+        label_font = FONT_M1 if self.is_large else FONT_S3
+        point = self.layout["main"]["clock-label"]
+        self.win.blit(label_font.render("UTC", 1, self.c.BLACK), point)
 
     def __draw_wind_compass(
         self, data: avwx.structs.MetarData, center: [int], radius: int
@@ -595,11 +613,12 @@ class METARScreen:
         elif wdir:
             text = FONT_M1.render(str(wdir.value).zfill(3), 1, self.c.BLACK)
             rad_point = radius_point(wdir.value, center, radius)
-            pygame.draw.line(self.win, self.c.RED, center, rad_point, 2)
+            width = 4 if self.is_large else 2
+            pygame.draw.line(self.win, self.c.RED, center, rad_point, width)
             if var:
                 for point in var:
                     rad_point = radius_point(point.value, center, radius)
-                    pygame.draw.line(self.win, self.c.BLUE, center, rad_point, 2)
+                    pygame.draw.line(self.win, self.c.BLUE, center, rad_point, width)
         else:
             text = FONT_L1.render(SpChar.CANCEL, 1, self.c.RED)
         self.win.blit(text, centered(text, center))
@@ -609,18 +628,18 @@ class METARScreen:
         Draw the dynamic wind elements
         """
         speed, gust = data.wind_speed, data.wind_gust
-        point = self.layout["main"]["wind_compass"]
-        radius = self.layout["main"]["wind_compass_radius"]
+        point = self.layout["main"]["wind-compass"]
+        radius = self.layout["main"]["wind-compass-radius"]
         self.__draw_wind_compass(data, point, radius)
         if speed.value:
             text = FONT_S3.render(f"{speed.value} {unit}", 1, self.c.BLACK)
-            point = self.layout["main"]["wind_speed"]
+            point = self.layout["main"]["wind-speed"]
             self.win.blit(text, centered(text, point))
         text = f"G: {gust.value}" if gust else "No Gust"
         text = FONT_S3.render(text, 1, self.c.BLACK)
-        self.win.blit(text, centered(text, self.layout["main"]["wind_gust"]))
+        self.win.blit(text, centered(text, self.layout["main"]["wind-gust"]))
 
-    def __draw_temp_icon(self, temp: int, point: (int, int)):
+    def __draw_temp_icon(self, temp: int):
         """
         Draw the temperature icon
         """
@@ -631,6 +650,7 @@ class METARScreen:
                 therm_level = 0
         add_i = "I" if self.inverted else ""
         therm_icon = f"Therm{therm_level}{add_i}.png"
+        point = self.layout["main"]["temp-icon"]
         self.win.blit(pygame.image.load(str(ICON_PATH / therm_icon)), point)
 
     def __draw_temp_dew_humidity(self, data: avwx.structs.MetarData):
@@ -639,35 +659,47 @@ class METARScreen:
         """
         temp = data.temperature
         dew = data.dewpoint
-        temp_text = "TMP: --"
-        diff_text = "STD: --"
-        dew_text = "DEW: --"
+        if self.is_large:
+            temp_text = "Temp "
+            diff_text = "Std Dev "
+            dew_text = "Dewpoint "
+            hmd_text = "Humidity "
+        else:
+            temp_text = "TMP: "
+            diff_text = "STD: "
+            dew_text = "DEW: "
+            hmd_text = "HMD: "
         # Dewpoint
-        if dew:
-            dew_text = f"DEW: {dew.value}{SpChar.DEGREES}"
+        dew_text += f"{dew.value}{SpChar.DEGREES}" if dew else "--"
         point = self.layout["main"]["dew"]
         self.win.blit(FONT_S3.render(dew_text, 1, self.c.BLACK), point)
         # Temperature
         if temp:
-            temp_text = f"TMP: {temp.value}{SpChar.DEGREES}"
+            temp_text += f"{temp.value}{SpChar.DEGREES}"
+            if self.is_large:
+                temp_text += self.metar.units.temperature
             temp_diff = temp.value - 15
             diff_sign = "-" if temp_diff < 0 else "+"
-            diff_text = f"SD: {diff_sign}{abs(temp_diff)}{SpChar.DEGREES}"
+            diff_text += f"{diff_sign}{abs(temp_diff)}{SpChar.DEGREES}"
+        else:
+            temp_text += "--"
+            diff_text += "--"
         point = self.layout["main"]["temp"]
         self.win.blit(FONT_S3.render(temp_text, 1, self.c.BLACK), point)
-        point = self.layout["main"]["temp_stdv"]
+        point = self.layout["main"]["temp-stdv"]
         self.win.blit(FONT_S3.render(diff_text, 1, self.c.BLACK), point)
-        point = self.layout["main"]["temp_icon"]
-        self.__draw_temp_icon(temp.value, point)
+        if "temp-icon" in self.layout["main"]:
+            self.__draw_temp_icon(temp.value)
         # Humidity
-        hmd_text = "HMD: --"
         if isinstance(temp.value, int) and isinstance(dew.value, int):
             relHum = (
                 (6.11 * 10.0 ** (7.5 * dew.value / (237.7 + dew.value)))
                 / (6.11 * 10.0 ** (7.5 * temp.value / (237.7 + temp.value)))
                 * 100
             )
-            hmd_text = f"HMD: {int(relHum)}%"
+            hmd_text += f"{int(relHum)}%"
+        else:
+            hmd_text += "--"
         point = self.layout["main"]["humid"]
         self.win.blit(FONT_S3.render(hmd_text, 1, self.c.BLACK), point)
 
@@ -716,6 +748,24 @@ class METARScreen:
                     )
                 LRBool *= -1
 
+    def __draw_wx_raw(self):
+        """
+        Draw wx and raw report
+        """
+        x, y = self.layout["wxraw"]["start"]
+        spacing = self.layout["wxraw"]["line-space"]
+        raw_key = "large"
+        wxs = sorted(self.metar.translations.other, key=lambda x: len(x))
+        if wxs:
+            wx_length = self.layout["wxraw"]["wx-length"]
+            y = self.__draw_text_lines(wxs, (x, y), wx_length, space=spacing)
+            raw_key = "small"
+        raw_font, raw_length, raw_padding = self.layout["wxraw"]["raw"][raw_key]
+        y += raw_padding
+        self.__draw_text_lines(
+            self.metar.data.raw, (x, y), raw_length, space=spacing, fontsize=raw_font
+        )
+
     def __main_draw_dynamic(
         self, data: avwx.structs.MetarData, units: avwx.structs.Units
     ) -> bool:
@@ -724,6 +774,12 @@ class METARScreen:
 
         Returns True if "Other-WX" or "Remarks" is not empty, else False
         """
+        if self.is_large:
+            altm_text = "Altm "
+            vis_text = "Visb "
+        else:
+            altm_text = "ALT: "
+            vis_text = "VIS: "
         tstamp = data.time.dt.strftime(r"%d-%H:%M")
         if "title" in cfg.layout["main"]:
             time_text = data.station + "  " + tstamp
@@ -733,106 +789,117 @@ class METARScreen:
             self.__draw_clock()
             point = self.layout["main"]["station"]
             self.win.blit(FONT_M1.render(data.station, 1, self.c.BLACK), point)
+            if self.is_large:
+                point = self.layout["main"]["timestamp-label"]
+                self.win.blit(FONT_S3.render(f"Updated", 1, self.c.BLACK), point)
+            else:
+                tstamp = "TS: " + tstamp
             point = self.layout["main"]["timestamp"]
-            self.win.blit(FONT_S3.render(f"TS: {tstamp}", 1, self.c.BLACK), point)
+            self.win.blit(FONT_S3.render(tstamp, 1, self.c.BLACK), point)
         # Current Flight Rules
         fr = data.flight_rules or "N/A"
-        fr_color, fr_x_offset = fr_display[fr]
-        point = copy(self.layout["main"]["flight_rules"])
+        fr_color, fr_x_offset = self.layout["fr-display"][fr]
+        point = copy(self.layout["main"]["flight-rules"])
         point[0] += fr_x_offset
-        self.win.blit(FONT_M1.render(fr, 1, fr_color), point)
+        self.win.blit(FONT_M1.render(fr, 1, getattr(self.c, fr_color.upper())), point)
         # Wind
         self.__draw_wind(data, units.wind_speed)
         # Temperature / Dewpoint / Humidity
         self.__draw_temp_dew_humidity(data)
         # Altimeter
         altm = data.altimeter
-        altm_text = f"ALT: {altm.value}" if altm else "ALT: --"
+        altm_text += str(altm.value) if altm else "--"
         point = self.layout["main"]["altim"]
         self.win.blit(FONT_S3.render(altm_text, 1, self.c.BLACK), point)
         # Visibility
-        vis_text = "VIS: --"
-        if data.visibility:
-            vis_text = f"VIS: {data.visibility.value}{units.visibility}"
+        vis = data.visibility
+        vis_text += f"{vis.value}{units.visibility}" if vis else "--"
         point = self.layout["main"]["vis"]
         self.win.blit(FONT_S3.render(vis_text, 1, self.c.BLACK), point)
         # Cloud Layers
-        points = self.layout["main"]["cloud_graph"]
+        points = self.layout["main"]["cloud-graph"]
         self.__draw_cloud_graph(data.clouds, *points)
-        pygame.display.flip()
+
+    def __draw_text_lines(
+        self,
+        items: [str],
+        left_point: (int, int),
+        length: int,
+        header: str = None,
+        space: int = None,
+        right_x: int = None,
+        fontsize: int = None,
+    ) -> int:
+        """
+        Draw lines of text with header, columns, and line wrapping
+        """
+        left_x, y = left_point
+        font = pygame.font.Font(FONT_PATH, fontsize) if fontsize else FONT_S2
+        if header:
+            text = FONT_S3.render(header, 1, self.c.BLACK)
+            self.win.blit(text, left_point)
+            y += text.get_size()[1] + space
+        left = True
+        if not isinstance(items, list):
+            items = [items]
+        for item in items:
+            # Column overflow control
+            if right_x is not None and len(item) > length:
+                if not left:
+                    y += space
+                    left = not left
+            x = left_x if left else right_x
+            # Line overflow control
+            if right_x is None:
+                while len(item) > length:
+                    cutPoint = item[:length].rfind(" ")
+                    text = font.render(item[:cutPoint], 1, self.c.BLACK)
+                    self.win.blit(text, (x, y))
+                    y += text.get_size()[1] + space
+                    item = item[cutPoint + 1 :]
+            text = font.render(item, 1, self.c.BLACK)
+            self.win.blit(text, (x, y))
+            if right_x is not None:
+                if not left or len(item) > length:
+                    y += text.get_size()[1] + space
+                left = not left
+            else:
+                y += text.get_size()[1] + space
+        # Don't add double new line
+        if not (left or len(items[-1]) > length):
+            y += text.get_size()[1] + space
+        return y
 
     @draw_func
     def draw_rmk(self):
         """
         Display available Other Weather / Remarks and cancel button control
         """
-
-        padding = self.layout["wxrmk"]["padding"]
-        header_space = self.layout["wxrmk"]["header_space"]
-        line_space = self.layout["wxrmk"]["line_space"]
-
-        def getY(head: int, line: int) -> int:
-            return padding + header_space * head + line_space * line
-
-        # Load
+        left = self.layout["wxrmk"]["col1"]
+        right = self.layout["wxrmk"]["col2"]
+        y = self.layout["wxrmk"]["padding"]
+        line_space = self.layout["wxrmk"]["line-space"]
         self.win.fill(self.c.WHITE)
-        n_head, n_line = 0, 0
         # Weather
-        wxs = self.metar.data.other
-        headerx = self.layout["wxrmk"]["header"]
+        wxs = sorted(self.metar.translations.other.split(", "), key=lambda x: len(x))
         if wxs:
-            self.win.blit(
-                FONT_S3.render("Other Weather", 1, self.c.BLACK),
-                (headerx, getY(n_head, n_line)),
+            wx_length = self.layout["wxrmk"]["wx-length"]
+            y = self.__draw_text_lines(
+                wxs,
+                (left, y),
+                wx_length,
+                header="Other Weather",
+                space=line_space,
+                right_x=right,
             )
-            n_head += 1
-            left = True
-            length = self.layout["wxrmk"]["wx_length"]
-            for wx in avwx.translate.other_list(wxs).split(", "):
-                # Column overflow control
-                if len(wx) > length:
-                    if not left:
-                        n_line += 1
-                    left = not left
-                pointx = self.layout["wxrmk"]["col1" if left else "col2"]
-                self.win.blit(
-                    FONT_S2.render(wx, 1, self.c.BLACK), (pointx, getY(n_head, n_line))
-                )
-                if len(wx) > length:
-                    n_line += 1
-                else:
-                    if not left:
-                        n_line += 1
-                    left = not left
-            if not left:
-                n_line += 1
         # Remarks
         rmk = self.metar.data.remarks
         if rmk:
-            self.win.blit(
-                FONT_S3.render("Remarks", 1, self.c.BLACK),
-                (headerx, getY(n_head, n_line)),
+            rmk_length = self.layout["wxrmk"]["rmk-length"]
+            self.__draw_text_lines(
+                rmk, (left, y), rmk_length, header="Remarks", space=line_space
             )
-            n_head += 1
-            length = self.layout["wxrmk"]["rmk_length"]
-            pointx = self.layout["wxrmk"]["col1"]
-            # Line overflow control
-            while len(rmk) > length:
-                cutPoint = rmk[:length].rfind(" ")
-                self.win.blit(
-                    FONT_S2.render(rmk[:cutPoint], 1, self.c.BLACK),
-                    (pointx, getY(n_head, n_line)),
-                )
-                n_line += 1
-                rmk = rmk[cutPoint + 1 :]
-            self.win.blit(
-                FONT_S2.render(rmk, 1, self.c.BLACK), (pointx, getY(n_head, n_line))
-            )
-            n_line += 1
-        point = self.layout["util"]
-        self.buttons = [
-            IconButton(point, self.draw_main, SpChar.CANCEL, "WHITE", "GRAY")
-        ]
+        self.buttons = [CancelButton(action=self.draw_main)]
 
     @draw_func
     def draw_main(self):
@@ -850,17 +917,22 @@ class METARScreen:
                 "GRAY",
             )
         ]
-        wx = self.metar.data.other
-        rmk = self.metar.data.remarks
-        if wx or rmk:
-            if wx and rmk:
-                text, color = "WX/RMK", "PURPLE"
-            elif wx:
-                text, color = "WX", "RED"
-            elif rmk:
-                text, color = "RMK", "BLUE"
-            rect = self.layout["main"]["wxrmk"]
-            self.buttons.append(RectButton(rect, self.draw_rmk, text, fontcolor=color))
+        if self.is_large:
+            self.__draw_wx_raw()
+        else:
+            wx = self.metar.data.other
+            rmk = self.metar.data.remarks
+            if wx or rmk:
+                if wx and rmk:
+                    text, color = "WX/RMK", "PURPLE"
+                elif wx:
+                    text, color = "WX", "RED"
+                elif rmk:
+                    text, color = "RMK", "BLUE"
+                rect = self.layout["main"]["wxrmk"]
+                self.buttons.append(
+                    RectButton(rect, self.draw_rmk, text, fontcolor=color)
+                )
         self.on_main = True
 
     def invert_wb(self, redraw: bool = True):
@@ -886,12 +958,12 @@ class METARScreen:
         else:
             text = "Exit the program?"
         text = FONT_M2.render(text, 1, self.c.BLACK)
-        point = self.width / 2, self.layout["quit"]["text_y"]
+        point = self.width / 2, self.layout["quit"]["text-y"]
         self.win.blit(text, centered(text, point))
         pointy, pointn = self.layout["quit"]["yes"], self.layout["quit"]["no"]
         self.buttons = [
             IconButton(pointy, quit, SpChar.CHECKMARK, "WHITE", "GREEN"),
-            IconButton(pointn, self.draw_main, SpChar.CANCEL, "WHITE", "RED"),
+            CancelButton(pointn, self.draw_main, fill="RED"),
         ]
 
     @draw_func
@@ -906,13 +978,10 @@ class METARScreen:
             ("michael@mdupont.com", "email", FONT_S3),
             ("github.com/flyinactor91/METAR-RasPi", "url", FONT_S1),
         ):
-            point = self.width / 2, self.layout["info"][key + "_y"]
+            point = self.width / 2, self.layout["info"][key + "-y"]
             text = font.render(text, 1, self.c.BLACK)
             self.win.blit(text, centered(text, point))
-        point = self.layout["util"]
-        self.buttons = [
-            IconButton(point, self.draw_main, SpChar.CANCEL, "WHITE", "GRAY")
-        ]
+        self.buttons = [CancelButton(action=self.draw_main)]
 
     @draw_func
     def draw_options_bar(self) -> bool:
@@ -920,17 +989,17 @@ class METARScreen:
         Draws options bar display
         """
         # Clear Option background
-        height, width = self.layout["main"]["util_back"]
+        height, width = self.layout["main"]["util-back"]
         pygame.draw.rect(self.win, self.c.WHITE, ((0, height), (width, self.height)))
         invchar = SpChar.SUN if self.inverted else SpChar.MOON
         btnx, btny = self.layout["util"]
-        spacing = self.layout["main"]["util_spacing"]
+        spacing = self.layout["main"]["util-spacing"]
 
         def getX(n: int) -> int:
             return btnx + spacing * n
 
         self.buttons = [
-            IconButton((getX(0), btny), self.draw_main, SpChar.CANCEL, "WHITE", "GRAY"),
+            CancelButton((getX(0), btny), self.draw_main),
             SelectionButton((getX(1), btny), self.draw_selection_screen),
             ShutdownButton((getX(2), btny), self.draw_quit_screen),
             IconButton((getX(3), btny), self.invert_wb, invchar, "WHITE", "BLACK"),
@@ -977,8 +1046,7 @@ class METARScreen:
         self.win.blit(FONT_M2.render(line1, 1, self.c.BLACK), point)
         point = self.layout["error"]["line2"]
         self.win.blit(FONT_M2.render(line2, 1, self.c.BLACK), point)
-        point = self.layout["util"]
-        self.buttons = [IconButton(point, btnf, SpChar.CANCEL, "WHITE", "GRAY")]
+        self.buttons = [CancelButton(action=btnf)]
 
     @draw_func
     def error_no_data(self):

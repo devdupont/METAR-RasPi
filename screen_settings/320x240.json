@@ -1,6 +1,6 @@
 {
     "size": [320, 240],
-    "large display": false,
+    "large-display": false,
     "fonts": {
         "s1": 12,
         "s2": 16,
@@ -13,53 +13,58 @@
         "radius": 25,
         "outline": 2
     },
+    "fr-display": {
+        "VFR": ["green", 0],
+        "MVFR": ["blue", -22],
+        "IFR": ["red", 10],
+        "LIFR": ["purple", -5],
+        "N/A": ["black", -6]
+    },
     "util": [40, 213],
     "main": {
         "title": [5, 5],
-        "flight_rules": [263, 5],
-        "wind_compass": [40, 80],
-        "wind_compass_radius": 35,
-        "wind_speed": [40, 126],
-        "wind_gust": [40, 147],
-        "temp_icon": [60, 50],
+        "flight-rules": [263, 5],
+        "wind-compass": [40, 80],
+        "wind-compass-radius": 35,
+        "wind-speed": [40, 126],
+        "wind-gust": [40, 147],
+        "temp-icon": [60, 50],
         "temp": [110, 50],
-        "temp_stdv": [110, 82],
+        "temp-stdv": [110, 82],
         "dew": [105, 114],
         "humid": [90, 146],
         "altim": [90, 178],
         "vis": [90, 210],
-        "cloud_graph": [[200, 35], [310, 230]],
+        "cloud-graph": [[200, 35], [310, 230]],
         "wxrmk": [3, 159, 80, 27],
-        "util_spacing": 60,
-        "util_back": [187, 320]
+        "util-spacing": 60,
+        "util-back": [187, 320]
     },
     "wxrmk": {
         "padding": 5,
-        "header": 8,
-        "header_space": 26,
-        "line_space": 23,
+        "line-space": 6,
         "col1": 10,
         "col2": 160,
-        "wx_length": 17,
-        "rmk_length": 28
+        "wx-length": 17,
+        "rmk-length": 28
     },
     "select": {
-        "row_up": 42,
-        "row_char": 122,
-        "row_down": 192,
-        "col_offset": 43,
-        "col_spacing": 55,
+        "row-up": 42,
+        "row-char": 122,
+        "row-down": 192,
+        "col-offset": 43,
+        "col-spacing": 55,
         "yes": [275, 80],
         "no": [275, 160]
     },
     "info": {
-        "title_y": 40,
-        "name_y": 95,
-        "email_y": 120,
-        "url_y": 147
+        "title-y": 40,
+        "name-y": 95,
+        "email-y": 120,
+        "url-y": 147
     },
     "quit": {
-        "text_y": 70,
+        "text-y": 70,
         "yes": [105, 150],
         "no": [215, 150]
     },
