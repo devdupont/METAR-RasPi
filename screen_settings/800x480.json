@@ -1,0 +1,81 @@
+{
+    "size": [800, 480],
+    "large-display": true,
+    "fonts": {
+        "s1": 20,
+        "s2": 26,
+        "s3": 28,
+        "m1": 40,
+        "m2": 52,
+        "l1": 64,
+        "l2": 134
+    },
+    "button": {
+        "radius": 33,
+        "outline": 3
+    },
+    "fr-display": {
+        "VFR": ["green", 0],
+        "MVFR": ["blue", -35],
+        "IFR": ["red", 10],
+        "LIFR": ["purple", -10],
+        "N/A": ["black", 5]
+    },
+    "util": [67, 430],
+    "main": {
+        "clock": [2, -13],
+        "clock-label": [400, 5],
+        "station": [545, 5],
+        "timestamp": [400, 86],
+        "timestamp-label": [400, 53],
+        "flight-rules": [715, 5],
+        "wind-compass": [67, 195],
+        "wind-compass-radius": 58,
+        "wind-speed": [67, 290],
+        "wind-gust": [67, 340],
+        "temp": [140, 135],
+        "temp-stdv": [325, 135],
+        "dew": [325, 185],
+        "humid": [325, 235],
+        "altim": [140, 185],
+        "vis": [140, 235],
+        "cloud-graph": [[545, 60], [790, 460]],
+        "wxrmk": [15, 268, 130, 40],
+        "util-spacing": 100,
+        "util-back": [395, 540]
+    },
+    "wxraw": {
+        "start": [140, 275],
+        "line-space": 5,
+        "wx-length": 31,
+        "raw": {
+            "small": [16, 40, 4],
+            "large": [20, 32, 10]
+        }
+    },
+    "select": {
+        "row-up": 120,
+        "row-char": 240,
+        "row-down": 360,
+        "col-offset": 180,
+        "col-spacing": 100,
+        "yes": [600, 150],
+        "no": [600, 330]
+    },
+    "info": {
+        "title-y": 120,
+        "name-y": 190,
+        "email-y": 245,
+        "url-y": 300
+    },
+    "quit": {
+        "text-y": 140,
+        "yes": [330, 290],
+        "no": [470, 290]
+    },
+    "error": {
+        "line1": [80, 110],
+        "line2": [80, 210],
+        "refresh": [160, 430]
+    }
+}
