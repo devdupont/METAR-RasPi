@@ -18,6 +18,7 @@ from typing import Callable
 # library
 import avwx
 import pygame
+from dateutil.tz import tzlocal
 
 # module
 import common
@@ -585,16 +586,17 @@ class METARScreen:
         """
         Draw the clock components
         """
-        now = datetime.utcnow().strftime(r"%H:%M")
+        now = datetime.utcnow() if cfg.clock_utc else datetime.now(tzlocal())
+        label = now.tzname() or "UTC"
         clock_font = globals().get("FONT_L2") or FONT_L1
-        clock_text = clock_font.render(now, 1, self.c.BLACK)
+        clock_text = clock_font.render(now.strftime(r"%H:%M"), 1, self.c.BLACK)
         x, y = self.layout["main"]["clock"]
         w, h = clock_text.get_size()
         pygame.draw.rect(self.win, self.c.WHITE, ((x, y), (x + w, (y + h) * 0.9)))
         self.win.blit(clock_text, (x, y))
         label_font = FONT_M1 if self.is_large else FONT_S3
         point = self.layout["main"]["clock-label"]
-        self.win.blit(label_font.render("UTC", 1, self.c.BLACK), point)
+        self.win.blit(label_font.render(label, 1, self.c.BLACK), point)
 
     def __draw_wind_compass(
         self, data: avwx.structs.MetarData, center: [int], radius: int

@@ -51,3 +51,6 @@ fullscreen = False
 
 # Hide the mouse on a touchscreen
 hide_mouse = False
+
+# Clock displays UTC or local time
+clock_utc = True
