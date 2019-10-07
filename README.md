@@ -26,7 +26,7 @@ Officially supported/tested displays:
 
 [Raspberry Pi 800x480 Touch Display](https://www.raspberrypi.org/products/raspberry-pi-touch-display/) | [PiTFT Plus 480x320 3.5" TFT+Touchscreen](https://www.adafruit.com/product/2441) | [Adafruit 320x240 2.8" TFT+Touchscreen](https://www.adafruit.com/product/2298)
 :---:|:----:|:----:
-![](img/320x240.jpg) | ![](img/480x320.jpg) | ![](img/800x480.jpg)
+![](img/800x480.jpg) | ![](img/480x320.jpg) | ![](img/320x240.jpg)
 
 However, the program can be run on any screen or computer in its own window for development purposes.
 
