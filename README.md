@@ -24,9 +24,9 @@ This version runs the METAR program on a touchscreen display.
 
 Officially supported/tested displays:
 
-- [Raspberry Pi 800x480 Touch Display](https://www.raspberrypi.org/products/raspberry-pi-touch-display/)
-- [PiTFT Plus 480x320 3.5" TFT+Touchscreen](https://www.adafruit.com/product/2441)
-- [Adafruit 320x240 2.8" TFT+Touchscreen](https://www.adafruit.com/product/2298)
+[Raspberry Pi 800x480 Touch Display](https://www.raspberrypi.org/products/raspberry-pi-touch-display/) | [PiTFT Plus 480x320 3.5" TFT+Touchscreen](https://www.adafruit.com/product/2441) | [Adafruit 320x240 2.8" TFT+Touchscreen](https://www.adafruit.com/product/2298)
+:---:|:----:|:----:
+![](img/320x240.jpg) | ![](img/480x320.jpg) | ![](img/800x480.jpg)
 
 However, the program can be run on any screen or computer in its own window for development purposes.
 
@@ -64,7 +64,7 @@ Common project settings are stored in `config.py`. For the screen, the ones you 
 - `shutdown_on_exit`: Set to `True` to shutdown the Pi when exiting the program
 - `clock_utc`: Clock displays UTC or local time. Not applicable to 320x240 size
 
-### Running
+## Running
 
 Install the dependencies using the Python version from above.
 
@@ -86,7 +86,7 @@ DISPLAY=:0 python3 screen.py
 
 On the main display, pressing the RMK, WX, WX/RMK displays more METAR information. Pressing the gear displays more options.
 
-### Startup
+## Startup
 
 If you want the METAR screen to run on boot, we can use autostart by creating this file:
 
