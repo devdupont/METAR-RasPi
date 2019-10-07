@@ -47,10 +47,10 @@ include_remarks = False
 # ------- Screen Settings ------ #
 
 # Run the program fullscreen or windowed
-fullscreen = False
+fullscreen = True
 
 # Hide the mouse on a touchscreen
-hide_mouse = False
+hide_mouse = True
 
 # Clock displays UTC or local time
 clock_utc = True
