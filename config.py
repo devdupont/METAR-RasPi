@@ -38,9 +38,6 @@ button_interval = 0.2
 # Seconds between row 2 char scroll
 scroll_interval = 0.5
 
-# Replace row 1 altimeter with NOSIG if present in report
-display_nosig = False
-
 # Remarks section in scroll line
 include_remarks = False
 
