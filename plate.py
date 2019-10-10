@@ -2,12 +2,12 @@
 Michael duPont - michael@mdupont.com
 plate.py - Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
 
-Use plate keypad to select ICAO station/airport iden to display METAR data
+Use plate keypad to select ICAO station/airport ident to display METAR data
   Left/Right - Choose position
   Up/Down    - Choose character A-9
-  Select     - Confirm station iden
+  Select     - Confirm station ident
 LCD panel now displays current METAR data (pulled from aviationweather.gov)
-  Line1      - IDEN HHMMZ BA.RO   or   IDEN HHMMZ NOSIG
+  Line1      - IDEN HHMMZ FTRL
   Line2      - Rest of METAR report
 LCD backlight indicates current Flight Rules
   Green      - VFR
@@ -15,7 +15,7 @@ LCD backlight indicates current Flight Rules
   Red        - IFR
   Violet     - LIFR
 At the end of a line scroll:
-  Holding select button displays iden selection screen
+  Holding select button displays ident selection screen
   Holding left and right buttons gives option to shutdown the Pi
 
 Uses Adafruit RGB Negative 16x2 LCD - https://www.adafruit.com/product/1110
@@ -25,12 +25,11 @@ Software library for LCD plate - https://github.com/adafruit/Adafruit-Raspberry-
 # stdlib
 import os
 import sys
-from copy import copy
 from time import sleep
 
 # library
 import avwx
-from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
+import Adafruit_CharLCD as LCD
 
 # module
 import common
@@ -46,19 +45,19 @@ replacements = [
 ]
 
 
-FR_COLORS = {"VFR": "GREEN", "MVFR": "BLUE", "IFR": "RED", "LIFR": "VIOLET"}
+FR_COLORS = {"VFR": (0, 255, 0), "MVFR": (0, 0, 255), "IFR": (255, 0, 0), "LIFR": (255, 0, 255)}
 
 
 class METARPlate:
     """
+    Controls LCD plate display and buttons
     """
 
     metar: avwx.Metar
     ident: [str]
-    old_ident: [str]
-    lcd: Adafruit_CharLCDPlate
-    num_cols: int = 16
-    num_rows: int = 2
+    lcd: LCD.Adafruit_CharLCDPlate
+    cols: int = 16
+    rows: int = 2
 
     def __init__(self, station: str, size: (int, int) = None):
         logger.debug("Running init")
@@ -67,11 +66,9 @@ class METARPlate:
         except avwx.exceptions.BadStation:
             self.metar = avwx.Metar("KJFK")
         self.ident = common.station_to_ident(station)
-        self.old_ident = copy(self.ident)
         if size:
-            self.num_cols, self.num_rows = size
-        self.lcd = Adafruit_CharLCDPlate()
-        self.lcd.begin(self.num_cols, self.num_rows)
+            self.cols, self.rows = size
+        self.lcd = LCD.Adafruit_CharLCDPlate(cols=self.cols, lines=self.rows)
         self.lcd.clear()
 
     @property
@@ -107,85 +104,83 @@ class METARPlate:
         selected = False
 
         self.lcd.clear()
-        self.lcd.setCursor(0, 0)
+        self.lcd.set_cursor(0, 0)
         self.lcd.message("4-Digit METAR")
         # Display default iden
         for row in range(4):
-            self.lcd.setCursor(row, 1)
+            self.lcd.set_cursor(row, 1)
             self.lcd.message(IDENT_CHARS[self.ident[row]])
-        self.lcd.setCursor(0, 1)
-        self.lcd.cursor()
+        self.lcd.set_cursor(0, 1)
+        self.lcd.show_cursor(True)
         sleep(1)  # Allow finger to be lifted from select button
         # Selection loop
         while not selected:
             # Shutdown option
-            if self.lcd.buttonPressed(self.lcd.LEFT) and self.lcd.buttonPressed(
-                self.lcd.RIGHT
+            if self.lcd.is_pressed(LCD.LEFT) and self.lcd.is_pressed(
+                LCD.RIGHT
             ):
                 self.lcd_shutdown()
                 self.lcd.clear()  # If no, reset screen
-                self.lcd.setCursor(0, 0)
+                self.lcd.set_cursor(0, 0)
                 self.lcd.message("4-Digit METAR")
                 for row in range(4):
-                    self.lcd.setCursor(row, 1)
+                    self.lcd.set_cursor(row, 1)
                     self.lcd.message(IDENT_CHARS[self.ident[row]])
-                self.lcd.setCursor(0, 1)
-                self.lcd.cursor()
+                self.lcd.set_cursor(0, 1)
+                self.lcd.show_cursor(True)
                 sleep(1)
             # Previous char
-            elif self.lcd.buttonPressed(self.lcd.UP):
+            elif self.lcd.is_pressed(LCD.UP):
                 curNum = self.ident[cursorPos]
                 if curNum == 0:
                     curNum = len(IDENT_CHARS)
                 self.ident[cursorPos] = curNum - 1
                 self.lcd.message(IDENT_CHARS[self.ident[cursorPos]])
             # Next char
-            elif self.lcd.buttonPressed(self.lcd.DOWN):
+            elif self.lcd.is_pressed(LCD.DOWN):
                 newNum = self.ident[cursorPos] + 1
                 if newNum == len(IDENT_CHARS):
                     newNum = 0
                 self.ident[cursorPos] = newNum
                 self.lcd.message(IDENT_CHARS[self.ident[cursorPos]])
             # Move cursor right
-            elif self.lcd.buttonPressed(self.lcd.RIGHT):
+            elif self.lcd.is_pressed(LCD.RIGHT):
                 if cursorPos < 3:
                     cursorPos += 1
             # Move cursor left
-            elif self.lcd.buttonPressed(self.lcd.LEFT):
+            elif self.lcd.is_pressed(LCD.LEFT):
                 if cursorPos > 0:
                     cursorPos -= 1
             # Confirm iden
-            elif self.lcd.buttonPressed(self.lcd.SELECT):
+            elif self.lcd.is_pressed(LCD.SELECT):
                 selected = True
-            self.lcd.setCursor(cursorPos, 1)
+            self.lcd.set_cursor(cursorPos, 1)
             sleep(cfg.button_interval)
-        self.lcd.noCursor()
+        self.lcd.show_cursor(0)
 
     def lcd_select(self):
         """
         Display METAR selection screen on LCD
         """
-        self.lcd.backlight(self.lcd.ON)
+        self.lcd.set_backlight(1)
         self.__handle_select()
         self.lcd.clear()
-        self.lcd.message(
-            common.ident_to_station(self.ident) + " selected\nFetching METAR"
-        )
+        self.lcd.message(f"{common.ident_to_station(self.ident)} selected")
 
-    def lcdTimeout(self):
+    def lcd_timeout(self):
         """
         Display timeout message and sleep
         """
         logger.warning("Connection Timeout")
-        self.lcd.backlight(self.lcd.ON)
+        self.lcd.set_backlight(1)
         self.lcd.clear()
-        self.lcd.setCursor(0, 0)
+        self.lcd.set_cursor(0, 0)
         self.lcd.message("No connection\nCheck back soon")
         sleep(cfg.timeout_interval)
 
-    def lcdBadStation(self):
+    def lcd_bad_station(self):
         self.lcd.clear()
-        self.lcd.setCursor(0, 0)
+        self.lcd.set_cursor(0, 0)
         self.lcd.message("No Weather Data\nFor " + common.ident_to_station(self.ident))
         sleep(3)
         self.lcd_select()
@@ -196,35 +191,35 @@ class METARPlate:
         """
         selection = False
         selected = False
-        self.lcd.backlight(self.lcd.ON)
+        self.lcd.set_backlight(1)
         self.lcd.clear()
-        self.lcd.setCursor(0, 0)
+        self.lcd.set_cursor(0, 0)
         if cfg.shutdown_on_exit:
             self.lcd.message("Shutdown the Pi?\nY N")
         else:
             self.lcd.message("Quit the program?\nY N")
-        self.lcd.setCursor(2, 1)
-        self.lcd.cursor()
+        self.lcd.set_cursor(2, 1)
+        self.lcd.show_cursor(True)
         sleep(1)  # Allow finger to be lifted from LR buttons
         # Selection loop
         while not selected:
             # Move cursor right
-            if self.lcd.buttonPressed(self.lcd.RIGHT) and selection:
-                self.lcd.setCursor(2, 1)
+            if self.lcd.is_pressed(LCD.RIGHT) and selection:
+                self.lcd.set_cursor(2, 1)
                 selection = False
             # Move cursor left
-            elif self.lcd.buttonPressed(self.lcd.LEFT) and not selection:
-                self.lcd.setCursor(0, 1)
+            elif self.lcd.is_pressed(LCD.LEFT) and not selection:
+                self.lcd.set_cursor(0, 1)
                 selection = True
             # Confirm selection
-            elif self.lcd.buttonPressed(self.lcd.SELECT):
+            elif self.lcd.is_pressed(LCD.SELECT):
                 selected = True
             sleep(cfg.button_interval)
-        self.lcd.noCursor()
+        self.lcd.show_cursor(False)
         if not selection:
             return None
         self.lcd.clear()
-        self.lcd.backlight(self.lcd.OFF)
+        self.lcd.set_backlight(0)
         if cfg.shutdown_on_exit:
             os.system("shutdown -h now")
         sys.exit()
@@ -243,87 +238,81 @@ class METARPlate:
             line2 = line2.replace(data.remarks, "").strip()
         for src, rep in replacements:
             line2 = line2.replace(src, rep).strip()
-        return line1, line2, FR_COLORS.get(data.flight_rules, "ON")
+        return line1, line2, FR_COLORS.get(data.flight_rules)
 
+    def display_metar(self, line1: str, line2: str) -> float:
+        """
+        Display METAR data on LCD plate
+        Returns approx time elapsed
+        """
+        self.lcd.clear()
+        # Write row 1
+        self.lcd.set_cursor(0, 0)
+        self.lcd.message(line1)
+        # Scroll row 2
+        timeElapsed = 0.0
+        if line2 <= self.cols:  # No need to scroll line
+            self.lcd.set_cursor(0, 1)
+            self.lcd.message(line2)
+        else:
+            self.lcd.set_cursor(0, 1)
+            self.lcd.message(line2[: self.cols])
+            sleep(2)  # Pause to read line start
+            timeElapsed += 2
+            for i in range(1, len(line2) - (self.cols - 1)):
+                self.lcd.set_cursor(0, 1)
+                self.lcd.message(line2[i : i + self.cols])
+                sleep(cfg.scroll_interval)
+                timeElapsed += cfg.scroll_interval
+        sleep(2)  # Pause to read line / line end
+        return timeElapsed + 2
 
-# Display METAR data on LCD plate
-# Returns approx time elapsed (float)
-def displayMETAR(line1, line2, lcdLight):
-    lcd.clear()
-    # Set LCD color to match current flight rules
-    lcd.backlight(lcdColors[lcdLight])
-    # Write row 1
-    lcd.setCursor(0, 0)
-    lcd.message(line1)
-    # Scroll row 2
-    timeElapsed = 0.0
-    if line2 <= numCols:  # No need to scroll line
-        lcd.setCursor(0, 1)
-        lcd.message(line2, lcd.TRUNCATE)
-    else:
-        lcd.setCursor(0, 1)
-        lcd.message(line2[:numCols], lcd.TRUNCATE)
-        sleep(2)  # Pause to read line start
-        timeElapsed += 2
-        for i in range(1, len(line2) - (numCols - 1)):
-            lcd.setCursor(0, 1)
-            lcd.message(line2[i : i + numCols], lcd.TRUNCATE)
-            sleep(scrollInterval)
-            timeElapsed += scrollInterval
-    sleep(2)  # Pause to read line / line end
-    return timeElapsed + 2
+    def update_metar(self) -> bool:
+        """
+        Update the METAR data and handle any errors
+        """
+        try:
+            self.metar.update()
+        except avwx.exceptions.BadStation:
+            self.lcd_bad_station()
+        except ConnectionError:
+            self.lcd_timeout()
+        except:
+            logger.exception()
+            return False
+        return True
 
-
-# Program Main
-# Returns 1 if error, else 0
-def lcd_main():
-    lastMETAR = ""
-    userSelected = True
-    setup()  # Initial Setup
-    lcdSelect()  # Show Ident Selection
-    while True:
-        METARtxt = getMETAR(ident_to_station(ident))  # Fetch current METAR
-        while type(METARtxt) == int:  # Fetch data until success
-            if METARtxt == 0:
-                lcdTimeout()  # Bad Connection
-            elif METARtxt == 1:
-                if userSelected:
-                    lcdBadStation()  # Invalid Station
-                else:
-                    logger.info("Ignoring non-user generated selection")
-                    METARtxt = copy(lastMETAR)  # Server data lookup error
-                    break
-            else:
-                return 1  # Code error
-            METARtxt = getMETAR(ident_to_station(ident))
-        userSelected = False
-        lastMETAR = copy(METARtxt)
-        logger.info(METARtxt)
-        L1, L2, FR = createDisplayData(METARtxt)  # Create display data
-        logger.info("\t" + L1 + "\n\t" + L2)  # Log METAR data
-        totalTime = 0.0
-        while totalTime < updateInterval:  # Loop until program fetches new data
-            totalTime += displayMETAR(
-                L1, L2, FR
-            )  # Cycle display one loop. Add elapsed time to total time
-            if lcd.buttonPressed(
-                lcd.SELECT
-            ):  # If select button pressed at end of a cycle
-                lcdSelect()  # Show Ident Selection
-                userSelected = True
-                break  # Break to fetch new METAR
-            elif lcd.buttonPressed(lcd.LEFT) and lcd.buttonPressed(
-                lcd.RIGHT
-            ):  # If right and left
-                lcdShutdown()  # Shutdown option
-
-    return 0
+    def lcd_main(self):
+        """
+        Display data until the elapsed time exceeds the update interval
+        """
+        line1, line2, color = self.create_display_data()
+        logger.info("\t{}\n\t{}" % line1, line2)
+        # Set LCD color to match current flight rules
+        self.lcd.set_color(*color) if color else self.lcd.set_backlight(1)
+        total_time = 0
+        # Loop until program fetches new data
+        while total_time < cfg.update_interval:
+            # Cycle display one loop. Add elapsed time to total time
+            total_time += self.display_metar(line1, line2)
+            # Go to selection screen if select button pressed
+            if self.lcd.is_pressed(LCD.SELECT):
+                self.lcd_select()
+                break
+            # Go to shutdown screen if left and right buttons pressed
+            elif self.lcd.is_pressed(LCD.LEFT) and self.lcd.is_pressed(LCD.RIGHT):
+                self.lcd_shutdown()
 
 
 def main() -> int:
-    """
-    """
+    logger.debug("Booting")
     plate = METARPlate.from_session(common.load_session())
+    # plate.lcd_select()
+    while True:
+        if not plate.update_metar():
+            return 1
+        logger.info(plate.metar.raw)
+        plate.lcd_main()
     return 0
 
 
