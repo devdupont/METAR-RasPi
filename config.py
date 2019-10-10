@@ -36,7 +36,7 @@ shutdown_on_exit = False
 button_interval = 0.2
 
 # Seconds between row 2 char scroll
-scroll_interval = 0.5
+scroll_interval = 0.2
 
 # Remarks section in scroll line
 include_remarks = False

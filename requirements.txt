@@ -6,3 +6,4 @@ pygame~=1.9.6
 
 # Plate
 # Adafruit_CharLCD~=1.1
+# RPi.GPIO~=0.7
