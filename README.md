@@ -1,6 +1,6 @@
 # METAR-RasPi
 
-Display ICAO METAR weather data with a Raspberry Pi
+Display ICAO METAR weather data with a Raspberry Pi. [Watch the demo](https://www.youtube.com/watch?v=TBnDOQ-6RTw)!
 
 ## Basic Setup
 
@@ -64,9 +64,26 @@ Common project settings are stored in `config.py`. For the screen, the ones you 
 - `shutdown_on_exit`: Set to `True` to shutdown the Pi when exiting the program
 - `clock_utc`: Clock displays UTC or local time. Not applicable to 320x240 size
 
+## Plate
+
+This version runs the METAR program on an LCD character display with physical buttons.
+
+### Hardware
+
+The METAR plate uses the [Adafruit 16x2 LCD Pi Hat](https://www.adafruit.com/product/1110). You will need to use a different client library if using a different board.
+
+You may wish to try some [sample programs from their tutorial](https://learn.adafruit.com/adafruit-16x2-character-lcd-plus-keypad-for-raspberry-pi/overview) to verify that the plate is working, but there is no additional software setup necessary to use the plate.
+
+### Program Config
+
+Common project settings are stored in `config.py`. For the plate, the custom configs involve button and scrolling intervals. You may wish to change:
+
+- `shutdown_on_exit`: Set to `True` to shutdown the Pi when exiting the program
+- `include_remarks`: Set to `True` to include the remarks section in scroll line
+
 ## Running
 
-Install the dependencies using the Python version from above.
+Install the dependencies using the Python version from above. Note: change the commented libraries in `requirements.txt` for the plate version.
 
 ```bash
 pip3 install -r requirements.txt
@@ -78,7 +95,7 @@ Then just run the screen file to boot the display.
 python3 screen.py
 ```
 
-**Note**: If you are starting the program via SSH, you should prepend the `DISPLAY` config in the Python call:
+**Note**: If you are starting the screen program via SSH, you should prepend the `DISPLAY` config in the Python call:
 
 ```bash
 DISPLAY=:0 python3 screen.py
@@ -100,3 +117,5 @@ Exec=/usr/bin/python3 /home/pi/METAR-RasPi/screen.py
 ```
 
 Make sure the Exec line uses your version of Python and points to your project folder.
+
+Replace `screen.py` with `plate.py` to run the METAR plate.
