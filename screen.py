@@ -589,7 +589,7 @@ class METARScreen:
         now = datetime.utcnow() if cfg.clock_utc else datetime.now(tzlocal())
         label = now.tzname() or "UTC"
         clock_font = globals().get("FONT_L2") or FONT_L1
-        clock_text = clock_font.render(now.strftime(r"%H:%M"), 1, self.c.BLACK)
+        clock_text = clock_font.render(now.strftime(cfg.clock_format), 1, self.c.BLACK)
         x, y = self.layout["main"]["clock"]
         w, h = clock_text.get_size()
         pygame.draw.rect(self.win, self.c.WHITE, ((x, y), (x + w, (y + h) * 0.9)))
@@ -782,7 +782,10 @@ class METARScreen:
         else:
             altm_text = "ALT: "
             vis_text = "VIS: "
-        tstamp = data.time.dt.strftime(r"%d-%H:%M")
+        tstamp = data.time.dt
+        if not cfg.clock_utc:
+            tstamp = tstamp.astimezone(tzlocal())
+        tstamp = tstamp.strftime(cfg.timestamp_format)
         if "title" in cfg.layout["main"]:
             time_text = data.station + "  " + tstamp
             point = self.layout["main"]["title"]

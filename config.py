@@ -51,3 +51,9 @@ hide_mouse = True
 
 # Clock displays UTC or local time
 clock_utc = True
+
+# Clock strftime format string
+clock_format = r"%H:%M"
+
+# Report timestamp strftime format string
+timestamp_format = r"%d-%H:%M"
