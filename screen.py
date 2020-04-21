@@ -438,7 +438,7 @@ class METARScreen:
         except avwx.exceptions.InvalidRequest:
             self.error_station()
         except Exception as exc:
-            logger.exception(f"An unknown error has occured: {exc}")
+            logger.exception(f"An unknown error has occurred: {exc}")
             self.error_unknown()
         else:
             logger.info(self.metar.raw)
@@ -465,7 +465,7 @@ class METARScreen:
         except avwx.exceptions.InvalidRequest:
             self.error_station()
         except Exception as exc:
-            logger.exception(f"An unknown error has occured: {exc}")
+            logger.exception(f"An unknown error has occurred: {exc}")
             self.error_unknown()
         else:
             logger.info(new_metar.raw)
