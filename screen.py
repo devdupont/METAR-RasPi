@@ -757,7 +757,8 @@ class METARScreen:
         x, y = self.layout["wxraw"]["start"]
         spacing = self.layout["wxraw"]["line-space"]
         raw_key = "large"
-        wxs = sorted(self.metar.translations.other, key=lambda x: len(x))
+        wxs = [c.value for c in self.metar.data.wx_codes]
+        wxs.sort(key=lambda x: len(x))
         if wxs:
             wx_length = self.layout["wxraw"]["wx-length"]
             y = self.__draw_text_lines(wxs, (x, y), wx_length, space=spacing)
@@ -886,7 +887,8 @@ class METARScreen:
         line_space = self.layout["wxrmk"]["line-space"]
         self.win.fill(self.c.WHITE)
         # Weather
-        wxs = sorted(self.metar.translations.other.split(", "), key=lambda x: len(x))
+        wxs = [c.value for c in self.metar.data.wx_codes]
+        wxs.sort(key=lambda x: len(x))
         if wxs:
             wx_length = self.layout["wxrmk"]["wx-length"]
             y = self.__draw_text_lines(
@@ -925,7 +927,7 @@ class METARScreen:
         if self.is_large:
             self.__draw_wx_raw()
         else:
-            wx = self.metar.data.other
+            wx = self.metar.data.wx_codes
             rmk = self.metar.data.remarks
             if wx or rmk:
                 if wx and rmk:
@@ -1107,7 +1109,7 @@ def quit():
     logger.debug("Quit")
     if cfg.shutdown_on_exit:
         system("shutdown -h now")
-    sys.exit()
+    sys.exit(0)
 
 
 async def update_loop(screen: METARScreen):

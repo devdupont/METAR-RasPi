@@ -53,7 +53,9 @@ hide_mouse = True
 clock_utc = True
 
 # Clock strftime format string
-clock_format = r"%H:%M"
+clock_format = r"%H:%M"    # 24-hour
+# clock_format = r"%#I:%M" # 12-hour
 
 # Report timestamp strftime format string
-timestamp_format = r"%d-%H:%M"
+timestamp_format = r"%d-%H:%M"    # 24-hour
+# timestamp_format = r"%d-%#I:%M" # 12-hour
