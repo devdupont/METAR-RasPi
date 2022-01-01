@@ -1,8 +1,8 @@
 # Required
-avwx-engine>=1.4.0
+avwx-engine>=1.6.20
 
 # Screen
-pygame~=1.9.6
+pygame~=2.1
 
 # Plate
 # Adafruit_CharLCD~=1.1

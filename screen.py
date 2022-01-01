@@ -13,7 +13,7 @@ import time
 from copy import copy
 from datetime import datetime
 from os import system
-from typing import Callable
+from typing import Callable, List, Tuple
 
 # library
 import avwx
@@ -43,6 +43,9 @@ class SpChar:
     UP_TRIANGLE = "\u25b2"
 
 
+Coord = Tuple[int, int]
+
+
 class Color:
     """
     RGB color values
@@ -56,7 +59,7 @@ class Color:
     PURPLE = 150, 0, 255
     GRAY = 60, 60, 60
 
-    def __getitem__(self, key: str) -> (int, int, int):
+    def __getitem__(self, key: str) -> Tuple[int, int, int]:
         try:
             return getattr(self, key)
         except AttributeError:
@@ -80,14 +83,14 @@ except KeyError:
     pass
 
 
-def midpoint(p1: (int, int), p2: (int, int)) -> (int, int):
+def midpoint(p1: Coord, p2: Coord) -> Coord:
     """
     Returns the midpoint between two points
     """
     return (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2
 
 
-def centered(rendered_text, around: (int, int)) -> (int, int):
+def centered(rendered_text, around: Coord) -> Coord:
     """
     Returns the top left point for rendered text at a center point
     """
@@ -95,7 +98,7 @@ def centered(rendered_text, around: (int, int)) -> (int, int):
     return around[0] - width / 2 + 1, around[1] - height / 2 + 1
 
 
-def radius_point(degree: int, center: (int, int), radius: int) -> (int, int):
+def radius_point(degree: int, center: Coord, radius: int) -> Coord:
     """
     Returns the degree point on the circumference of a circle
     """
@@ -135,7 +138,7 @@ class Button:
         """
         raise NotImplementedError()
 
-    def is_clicked(self, pos: (int, int)) -> bool:
+    def is_clicked(self, pos: Coord) -> bool:
         """
         Returns True if the position is within the button bounds
         """
@@ -162,7 +165,7 @@ class RectButton(Button):
 
     def __init__(
         self,
-        bounds: [int],
+        bounds: List[int],
         action: Callable,
         text: str = None,
         fontsize: int = cfg.layout["fonts"]["s3"],
@@ -196,7 +199,7 @@ class RectButton(Button):
             y = self.y1 + (self.height - rheight) / 2 + 1
             win.blit(rendered, (x, y))
 
-    def is_clicked(self, pos: (int, int)) -> bool:
+    def is_clicked(self, pos: Coord) -> bool:
         """
         Returns True if the position is within the button bounds
         """
@@ -215,7 +218,7 @@ class RoundButton(Button):
 
     def __init__(
         self,
-        center: (int, int),
+        center: Coord,
         action: Callable,
         radius: int = cfg.layout["button"]["radius"],
     ):
@@ -223,7 +226,7 @@ class RoundButton(Button):
         self.radius = radius
         self.onclick = action
 
-    def is_clicked(self, pos: (int, int)) -> bool:
+    def is_clicked(self, pos: Coord) -> bool:
         """
         Returns True if the position is within the button bounds
         """
@@ -244,7 +247,7 @@ class IconButton(RoundButton):
 
     def __init__(
         self,
-        center: (int, int) = None,
+        center: Coord = None,
         action: Callable = None,
         icon: str = None,
         fontcolor: str = None,
@@ -324,7 +327,7 @@ class SelectionButton(RoundButton):
 
 class CancelButton(IconButton):
 
-    center: (int, int) = cfg.layout["util"]
+    center: Coord = cfg.layout["util"]
     icon: str = SpChar.CANCEL
     fontcolor: str = "WHITE"
     fill: str = "GRAY"
@@ -352,21 +355,21 @@ class METARScreen:
     Controls and draws UI elements
     """
 
-    ident: [str]
-    old_ident: [str]
+    ident: List[str]
+    old_ident: List[str]
     width: int
     height: int
     win: pygame.Surface
     c: Color
     inverted: bool
     update_time: float
-    buttons: [Button]
+    buttons: List[Button]
     layout: dict
     is_large: bool
 
     on_main: bool = False
 
-    def __init__(self, station: str, size: (int, int), inverted: bool):
+    def __init__(self, station: str, size: Coord, inverted: bool):
         logger.debug("Running init")
         try:
             self.metar = avwx.Metar(station)
@@ -399,7 +402,7 @@ class METARScreen:
         return common.ident_to_station(self.ident)
 
     @classmethod
-    def from_session(cls, session: dict, size: (int, int)):
+    def from_session(cls, session: dict, size: Coord):
         """
         Returns a new Screen from a saved session
         """
@@ -599,7 +602,7 @@ class METARScreen:
         self.win.blit(label_font.render(label, 1, self.c.BLACK), point)
 
     def __draw_wind_compass(
-        self, data: avwx.structs.MetarData, center: [int], radius: int
+        self, data: avwx.structs.MetarData, center: List[int], radius: int
     ):
         """
         Draw the wind direction compass
@@ -705,7 +708,9 @@ class METARScreen:
         point = self.layout["main"]["humid"]
         self.win.blit(FONT_S3.render(hmd_text, 1, self.c.BLACK), point)
 
-    def __draw_cloud_graph(self, clouds: [avwx.structs.Cloud], tl: [int], br: [int]):
+    def __draw_cloud_graph(
+        self, clouds: List[avwx.structs.Cloud], tl: List[int], br: List[int]
+    ):
         """
         Draw cloud layers in chart
 
@@ -828,8 +833,8 @@ class METARScreen:
 
     def __draw_text_lines(
         self,
-        items: [str],
-        left_point: (int, int),
+        items: List[str],
+        left_point: Coord,
         length: int,
         header: str = None,
         space: int = None,
@@ -1036,7 +1041,7 @@ class METARScreen:
 
     async def wait_for_network(self):
         """
-        Sleep while waiting for a missing network 
+        Sleep while waiting for a missing network
         """
         logger.info("No network")
         self.draw_no_network()
@@ -1150,7 +1155,7 @@ async def clock_loop(screen: METARScreen):
         await aio.sleep(1)
 
 
-def run_with_touch_input(screen: METARScreen, *coros: [Callable]):
+def run_with_touch_input(screen: METARScreen, *coros: List[Callable]):
     """
     Runs an async screen function with touch input enabled
     """

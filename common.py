@@ -6,8 +6,7 @@ static.py - Shared global methods
 # stdlib
 import json
 import logging
-from os import path
-from pathlib import Path
+from typing import List
 
 # module
 import config as cfg
@@ -59,14 +58,14 @@ if cfg.log_file is not None:
     logger.addHandler(log_file)
 
 
-def ident_to_station(idents: [int]) -> str:
+def ident_to_station(idents: List[int]) -> str:
     """
     Converts 'ident' ints to station string
     """
     return "".join([IDENT_CHARS[num] for num in idents])
 
 
-def station_to_ident(station: str) -> [int]:
+def station_to_ident(station: str) -> List[int]:
     """
     Converts station string to 'ident' ints
     """

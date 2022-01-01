@@ -8,13 +8,6 @@ import logging
 from os import path
 from pathlib import Path
 
-# Size of the screen. Loads the layout from "./screen_settings"
-layout = "320x240"
-
-LOC = Path(path.abspath(path.dirname(__file__)))
-layout = LOC / "screen_settings" / f"{layout}.json"
-layout = json.load(layout.open())
-
 # Seconds between server pings
 update_interval = 600
 
@@ -42,6 +35,13 @@ scroll_interval = 0.2
 include_remarks = False
 
 # ------- Screen Settings ------ #
+
+# Size of the screen. Loads the layout from "./screen_settings"
+layout = "320x240"
+
+LOC = Path(path.abspath(path.dirname(__file__)))
+layout = LOC / "screen_settings" / f"{layout}.json"
+layout = json.load(layout.open())
 
 # Run the program fullscreen or windowed
 fullscreen = True

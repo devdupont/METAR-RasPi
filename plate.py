@@ -26,7 +26,7 @@ Uses Adafruit RGB Negative 16x2 LCD - https://www.adafruit.com/product/1110
 import os
 import sys
 from time import sleep
-from typing import Callable
+from typing import Callable, List, Tuple
 
 # library
 import avwx
@@ -54,18 +54,21 @@ FR_COLORS = {
 }
 
 
+Coord = Tuple[int, int]
+
+
 class METARPlate:
     """
     Controls LCD plate display and buttons
     """
 
     metar: avwx.Metar
-    ident: [str]
+    ident: List[str]
     lcd: LCD.Adafruit_CharLCDPlate
     cols: int = 16
     rows: int = 2
 
-    def __init__(self, station: str, size: (int, int) = None):
+    def __init__(self, station: str, size: Coord = None):
         logger.debug("Running init")
         try:
             self.metar = avwx.Metar(station)
@@ -280,7 +283,9 @@ class METARPlate:
                 return
         return elapsed
 
-    def scroll_line(self, line: str, handler: Callable, row: int = 1) -> (float, bool):
+    def scroll_line(
+        self, line: str, handler: Callable, row: int = 1
+    ) -> Tuple[float, bool]:
         """
         Scroll a line on the display
 
