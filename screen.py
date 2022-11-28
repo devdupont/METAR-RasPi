@@ -453,7 +453,7 @@ class METARScreen:
             elif force_main and not updated:
                 self.error_no_data()
 
-    def new_station(self):
+    async def new_station(self):
         """
         Update the current station from ident and display new main screen
         """
@@ -461,7 +461,7 @@ class METARScreen:
         self.draw_loading_screen()
         new_metar = avwx.Metar(self.station)
         try:
-            if not new_metar.update():
+            if not await new_metar.async_update():
                 return self.error_no_data()
         except (TimeoutError, ConnectionError, avwx.exceptions.SourceError):
             self.error_connection()
@@ -478,7 +478,7 @@ class METARScreen:
             self.export_session()
             self.draw_main()
 
-    def verify_station(self):
+    async def verify_station(self):
         """
         Verifies the station value before calling new data
         """
@@ -488,7 +488,7 @@ class METARScreen:
                 return self.error_reporting()
         except avwx.exceptions.BadStation:
             return self.error_station()
-        return self.new_station()
+        return await self.new_station()
 
     def cancel_station(self):
         """
@@ -1140,7 +1140,10 @@ async def input_loop(screen: METARScreen):
                     hide_mouse()
                 for button in screen.buttons:
                     if button.is_clicked(pos):
-                        button.onclick()
+                        if aio.iscoroutinefunction(button.onclick):
+                            await button.onclick()
+                        else:
+                            button.onclick()
                         break
         await aio.sleep(0.01)
 

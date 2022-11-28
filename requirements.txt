@@ -1,5 +1,5 @@
 # Required
-avwx-engine>=1.6.20
+avwx-engine>=1.8.5
 
 # Screen
 pygame~=2.1
