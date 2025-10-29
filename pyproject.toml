@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "METAR-RasPi"
+version = "0.1.0"
+description = "Display ICAO METAR weather data with a Raspberry Pi"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["aviation", "weather", "metar", "raspberry pi"]
+authors = [
+    { name = "Michael duPont", email = "michael@dupont.dev" },
+]
+
+[project.urls]
+Issues = "https://github.com/devdupont/METAR-RasPi/issues"
+Source = "https://github.com/devdupont/METAR-RasPi"
+
+[tool.hatch.envs.screen]
+extra-dependencies = [
+    "avwx-engine>=1.9.7",
+    "mypy>=1.0.0",
+    "pygame~=2.6",
+]
+[tool.hatch.envs.screen.scripts]
+run = "python metar_raspi/screen.py"
+types = "mypy --install-types --non-interactive --exclude plate.py {args:metar_raspi}"
+
+[tool.hatch.envs.plate]
+extra-dependencies = [
+    "Adafruit_CharLCD~=1.1",
+    "avwx-engine>=1.9.7",
+    "mypy>=1.0.0",
+    "RPi.GPIO~=0.7",
+]
+[tool.hatch.envs.plate.scripts]
+run = "python metar_raspi/plate.py"
+types = "mypy --install-types --non-interactive --exclude screen.py {args:metar_raspi}"
+
+
+[tool.mypy]
+disallow_any_unimported = false
+disallow_untyped_defs = true
+no_implicit_optional = true
+strict_equality = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+check_untyped_defs = true
+show_error_codes = true
+
+[tool.ruff]
+lint.ignore = [
+    "D105",
+    "D203",
+    "D213",
+    "PLR2004", # Magic variable. Consider slowly re-enabling
+    "N818",
+]

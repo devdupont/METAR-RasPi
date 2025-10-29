@@ -1,15 +1,9 @@
-"""
-Michael duPont - michael@mdupont.com
-static.py - Shared global methods
-"""
+"""Shared global methods."""
 
-# stdlib
 import json
 import logging
-from typing import List
 
-# module
-import config as cfg
+import metar_raspi.config as cfg
 
 IDENT_CHARS = [
     "A",
@@ -58,17 +52,13 @@ if cfg.log_file is not None:
     logger.addHandler(log_file)
 
 
-def ident_to_station(idents: List[int]) -> str:
-    """
-    Converts 'ident' ints to station string
-    """
+def ident_to_station(idents: list[int]) -> str:
+    """Converts 'ident' ints to station string."""
     return "".join([IDENT_CHARS[num] for num in idents])
 
 
-def station_to_ident(station: str) -> List[int]:
-    """
-    Converts station string to 'ident' ints
-    """
+def station_to_ident(station: str) -> list[int]:
+    """Converts station string to 'ident' ints."""
     ret = []
     for char in station:
         if char.isalpha():
@@ -82,17 +72,14 @@ SESSION_PATH = cfg.LOC / "session.json"
 
 
 def load_session() -> dict:
-    """
-    Returns available session dict
-    """
+    """Returns available session dict."""
     try:
-        return json.load(SESSION_PATH.open())
+        session: dict = json.load(SESSION_PATH.open())
     except FileNotFoundError:
         return {}
+    return session
 
 
-def save_session(data: dict):
-    """
-    Save the session dict to disk
-    """
+def save_session(data: dict) -> None:
+    """Save the session dict to disk."""
     json.dump(data, SESSION_PATH.open("w"))

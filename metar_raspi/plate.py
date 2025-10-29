@@ -1,6 +1,4 @@
-"""
-Michael duPont - michael@mdupont.com
-plate.py - Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate
+"""Display ICAO METAR weather data with a Raspberry Pi and Adafruit LCD plate.
 
 Use plate keypad to select ICAO station/airport ident to display METAR data
   Left/Right - Choose position
@@ -22,20 +20,22 @@ While on the main and station selection display
 Uses Adafruit RGB Negative 16x2 LCD - https://www.adafruit.com/product/1110
 """
 
-# stdlib
 import os
 import sys
+from collections.abc import Callable
 from time import sleep
-from typing import Callable, List, Tuple
+from typing import TYPE_CHECKING, Self
 
-# library
-import avwx
 import Adafruit_CharLCD as LCD
+from avwx import Metar
+from avwx.exceptions import BadStation
 
-# module
-import common
-import config as cfg
-from common import IDENT_CHARS, logger
+import metar_raspi.config as cfg
+from metar_raspi import common
+from metar_raspi.common import IDENT_CHARS, logger
+
+if TYPE_CHECKING:
+    from avwx.structs import MetarData
 
 # String replacement for Line2 (scrolling data)
 replacements = [
@@ -54,26 +54,24 @@ FR_COLORS = {
 }
 
 
-Coord = Tuple[int, int]
+Coord = tuple[int, int]
 
 
 class METARPlate:
-    """
-    Controls LCD plate display and buttons
-    """
+    """Controls LCD plate display and buttons."""
 
-    metar: avwx.Metar
-    ident: List[str]
+    metar: Metar
+    ident: list[str]
     lcd: LCD.Adafruit_CharLCDPlate
     cols: int = 16
     rows: int = 2
 
-    def __init__(self, station: str, size: Coord = None):
+    def __init__(self, station: str, size: Coord | None = None):
         logger.debug("Running init")
         try:
-            self.metar = avwx.Metar(station)
-        except avwx.exceptions.BadStation:
-            self.metar = avwx.Metar("KJFK")
+            self.metar = Metar(station)
+        except BadStation:
+            self.metar = Metar("KJFK")
         self.ident = common.station_to_ident(station)
         if size:
             self.cols, self.rows = size
@@ -82,51 +80,44 @@ class METARPlate:
 
     @property
     def station(self) -> str:
-        """
-        The current station
-        """
+        """The current station."""
         return common.ident_to_station(self.ident)
 
     @classmethod
-    def from_session(cls, session: dict):
-        """
-        Returns a new Screen from a saved session
-        """
+    def from_session(cls, session: dict) -> Self:
+        """Returns a new Screen from a saved session."""
         station = session.get("station", "KJFK")
         return cls(station)
 
-    def export_session(self, save: bool = True):
-        """
-        Saves or returns a dictionary representing the session's state
-        """
+    def export_session(self, *, save: bool = True) -> dict:
+        """Saves or returns a dictionary representing the session's state."""
         session = {"station": self.station}
         if save:
             common.save_session(session)
         return session
 
     @property
-    def pressed_select(self):
+    def pressed_select(self) -> bool:
+        """Returns True if the select button is pressed."""
         return self.lcd.is_pressed(LCD.SELECT)
 
     @property
-    def pressed_shutdown(self):
+    def pressed_shutdown(self) -> bool:
+        """Returns True if the shutdown buttons are pressed."""
         return self.lcd.is_pressed(LCD.LEFT) and self.lcd.is_pressed(LCD.RIGHT)
 
-    def clear(self, reset_backlight: bool = True):
-        """
-        Resets the display and backlight color
-        """
+    def clear(self, *, reset_backlight: bool = True) -> None:
+        """Resets the display and backlight color."""
         if reset_backlight:
             self.lcd.set_backlight(1)
         self.lcd.clear()
         self.lcd.set_cursor(0, 0)
 
-    def __handle_select(self):
-        """
-        Select METAR station
+    def __handle_select(self) -> None:
+        """Select METAR station.
         Use LCD to update 'ident' values
         """
-        cursorPos = 0
+        cursor_pos = 0
         selected = False
         self.clear()
         self.lcd.message("4-Digit METAR")
@@ -146,64 +137,59 @@ class METARPlate:
                 self.lcd_select()
                 return
             # Previous char
-            elif self.lcd.is_pressed(LCD.UP):
-                curNum = self.ident[cursorPos]
-                if curNum == 0:
-                    curNum = len(IDENT_CHARS)
-                self.ident[cursorPos] = curNum - 1
-                self.lcd.message(IDENT_CHARS[self.ident[cursorPos]])
+            if self.lcd.is_pressed(LCD.UP):
+                index = self.ident[cursor_pos]
+                if index == 0:
+                    index = len(IDENT_CHARS)
+                self.ident[cursor_pos] = index - 1
+                self.lcd.message(IDENT_CHARS[self.ident[cursor_pos]])
             # Next char
             elif self.lcd.is_pressed(LCD.DOWN):
-                newNum = self.ident[cursorPos] + 1
-                if newNum == len(IDENT_CHARS):
-                    newNum = 0
-                self.ident[cursorPos] = newNum
-                self.lcd.message(IDENT_CHARS[self.ident[cursorPos]])
+                index = self.ident[cursor_pos] + 1
+                if index == len(IDENT_CHARS):
+                    index = 0
+                self.ident[cursor_pos] = index
+                self.lcd.message(IDENT_CHARS[self.ident[cursor_pos]])
             # Move cursor right
             elif self.lcd.is_pressed(LCD.RIGHT):
-                if cursorPos < 3:
-                    cursorPos += 1
+                if cursor_pos < 3:
+                    cursor_pos += 1
             # Move cursor left
             elif self.lcd.is_pressed(LCD.LEFT):
-                if cursorPos > 0:
-                    cursorPos -= 1
+                if cursor_pos > 0:
+                    cursor_pos -= 1
             # Confirm ident
             elif self.pressed_select:
                 selected = True
-            self.lcd.set_cursor(cursorPos, 1)
+            self.lcd.set_cursor(cursor_pos, 1)
             sleep(cfg.button_interval)
         self.lcd.show_cursor(0)
 
-    def lcd_select(self):
-        """
-        Display METAR selection screen on LCD
-        """
+    def lcd_select(self) -> None:
+        """Display METAR selection screen on LCD."""
         self.lcd.set_backlight(1)
         self.__handle_select()
         self.export_session()
-        self.metar = avwx.Metar(self.station)
+        self.metar = Metar(self.station)
         self.clear()
         self.lcd.message(f"{self.station} selected")
 
-    def lcd_timeout(self):
-        """
-        Display timeout message and sleep
-        """
+    def lcd_timeout(self) -> None:
+        """Display timeout message and sleep."""
         logger.warning("Connection Timeout")
         self.clear(True)
         self.lcd.message("No connection\nCheck back soon")
         sleep(cfg.timeout_interval)
 
-    def lcd_bad_station(self):
+    def lcd_bad_station(self) -> None:
+        """Display bad station message and sleep."""
         self.clear()
         self.lcd.message(f"No Weather Data\nFor {self.station}")
         sleep(3)
         self.lcd_select()
 
-    def lcd_shutdown(self):
-        """
-        Display shutdown options
-        """
+    def lcd_shutdown(self) -> None:
+        """Display shutdown options."""
         selection = False
         selected = False
         self.clear()
@@ -233,18 +219,22 @@ class METARPlate:
         self.clear(False)
         self.lcd.set_backlight(0)
         if cfg.shutdown_on_exit:
-            os.system("shutdown -h now")
+            os.system("shutdown -h now")  # noqa: S605, S607
         sys.exit()
 
-    def create_display_data(self):
-        """
-        Returns tuple of display data
+    def create_display_data(self) -> None:
+        """Returns tuple of display data.
+
         Line1: IDEN HHMMZ FTRL
         Line2: Rest of METAR report
         BLInt: Flight rules backlight color
         """
-        data = self.metar.data
-        line1 = f"{data.station} {data.time.repr[2:]} {data.flight_rules}"
+        if not self.metar.data:
+            self.lcd_bad_station()
+            return
+        data: MetarData = self.metar.data
+        time = data.time.repr[2:] if data.time else "----Z"
+        line1 = f"{data.station} {time} {data.flight_rules}"
         line2 = data.raw.split(" ", 2)[-1]
         if not cfg.include_remarks:
             line2 = line2.replace(data.remarks, "").strip()
@@ -253,27 +243,22 @@ class METARPlate:
         return line1, line2, FR_COLORS.get(data.flight_rules)
 
     def __scroll_button_check(self) -> bool:
-        """
-        Handles any pressed buttons during main display
-        """
+        """Handles any pressed buttons during main display."""
         # Go to selection screen if select button pressed
         if self.pressed_select:
             self.lcd_select()
             return True
         # Go to shutdown screen if left and right buttons pressed
-        elif self.pressed_shutdown:
+        if self.pressed_shutdown:
             self.lcd_shutdown()
             return True
         return False
 
     @staticmethod
-    def __sleep_with_input(
-        up_to: int, handler: Callable, step: float = cfg.button_interval
-    ) -> float:
-        """
-        Sleep for a certain amount while checking an input handler
+    def __sleep_with_input(up_to: int, handler: Callable, step: float = cfg.button_interval) -> float:
+        """Sleep for a certain amount while checking an input handler.
 
-        Returns the elapsed time or None if interrupted
+        Returns the elapsed time or None if interrupted.
         """
         elapsed = 0
         for _ in range(int(up_to / step)):
@@ -283,15 +268,12 @@ class METARPlate:
                 return
         return elapsed
 
-    def scroll_line(
-        self, line: str, handler: Callable, row: int = 1
-    ) -> Tuple[float, bool]:
-        """
-        Scroll a line on the display
+    def scroll_line(self, line: str, handler: Callable, row: int = 1) -> tuple[float, bool]:
+        """Scroll a line on the display.
 
-        Must be given a function to handle button presses
+        Must be given a function to handle button presses.
 
-        Returns approximate time elapsed and main refresh boolean
+        Returns approximate time elapsed and main refresh boolean.
         """
         elapsed = 0
         if len(line) <= self.cols:
@@ -318,24 +300,20 @@ class METARPlate:
         return elapsed, False
 
     def update_metar(self) -> bool:
-        """
-        Update the METAR data and handle any errors
-        """
+        """Update the METAR data and handle any errors."""
         try:
             self.metar.update()
-        except avwx.exceptions.BadStation:
+        except BadStation:
             self.lcd_bad_station()
         except ConnectionError:
             self.lcd_timeout()
-        except:
+        except:  # noqa: E722
             logger.exception("Report Update Error")
             return False
         return True
 
-    def lcd_main(self):
-        """
-        Display data until the elapsed time exceeds the update interval
-        """
+    def lcd_main(self) -> None:
+        """Display data until the elapsed time exceeds the update interval."""
         line1, line2, color = self.create_display_data()
         logger.info("\t%s\n\t%s", line1, line2)
         self.clear()
@@ -359,7 +337,6 @@ def main() -> int:
             return 1
         logger.info(plate.metar.raw)
         plate.lcd_main()
-    return 0
 
 
 if __name__ == "__main__":

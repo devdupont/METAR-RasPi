@@ -1,5 +1,6 @@
 {
-    "size": [800, 400],
+    "width": 800,
+    "height": 400,
     "large-display": true,
     "fonts": {
         "s1": 20,
@@ -15,11 +16,11 @@
         "outline": 3
     },
     "fr-display": {
-        "VFR": ["green", 0],
-        "MVFR": ["blue", -35],
-        "IFR": ["red", 10],
-        "LIFR": ["purple", -10],
-        "N/A": ["black", 5]
+        "VFR": 0,
+        "MVFR": -35,
+        "IFR": 10,
+        "LIFR": -10,
+        "N/A": 5
     },
     "util": [67, 355],
     "main": {
